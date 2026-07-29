@@ -27,9 +27,10 @@ class RoomViewModel extends AutoDisposeFamilyNotifier<RoomState, String> {
   @override
   RoomState build(String arg) {
     final repo = ref.watch(chatRepositoryProvider);
-    final sub = repo
-        .watchRoom(arg)
-        .listen((cards) => state = state.copyWith(cards: cards));
+    final sub = repo.watchRoom(arg).listen((cards) => state = state.copyWith(
+        // Never show a card whose fade window has closed, even if the server
+        // sweep hasn't caught it yet.
+        cards: cards.where((c) => !c.expired).toList()));
     ref.onDispose(sub.cancel);
 
     // Opening the room is "seeing" it — fade clocks start now.
@@ -59,7 +60,9 @@ class RoomViewModel extends AutoDisposeFamilyNotifier<RoomState, String> {
         durationSec: durationSec,
         fade: state.fade,
         sentAt: DateTime.now(),
-        seenAt: DateTime.now(), // demo: my cards start fading immediately
+        // My own card is "seen" by me; the server sets the authoritative
+        // clock and the next refresh replaces this optimistic copy.
+        seenAt: DateTime.now(),
         aiGenerated: aiGenerated,
         aiSeed: aiSeed,
       );
@@ -69,14 +72,21 @@ class RoomViewModel extends AutoDisposeFamilyNotifier<RoomState, String> {
     _repo.send(_draft(CardType.text, body: body.trim()));
   }
 
+  /// A SpaceAI draft sent as-is — carries the "Sent with SpaceAI." mark.
+  void sendAiText(String body) {
+    if (body.trim().isEmpty) return;
+    _repo.send(_draft(CardType.text, body: body.trim(), aiGenerated: true));
+  }
+
+
   void sendPhoto(String path, {String caption = ''}) =>
       _repo.send(_draft(CardType.photo, mediaPath: path, body: caption));
 
   void sendVideo(String path, {String caption = ''}) =>
       _repo.send(_draft(CardType.video, mediaPath: path, body: caption));
 
-  void sendVoice(int seconds) =>
-      _repo.send(_draft(CardType.voice, durationSec: seconds));
+  void sendVoice(int seconds, {String? url}) => _repo.send(
+      _draft(CardType.voice, durationSec: seconds, mediaPath: url));
 
   void sendLink(String url, {String comment = ''}) =>
       _repo.send(_draft(CardType.link, linkUrl: url, body: comment));
@@ -94,6 +104,8 @@ class RoomViewModel extends AutoDisposeFamilyNotifier<RoomState, String> {
       _repo.consumeViewOnce(roomId, card.id);
 
   void deleteCard(SpaceCard card) => _repo.delete(roomId, card.id);
+
+  void react(SpaceCard card, String emoji) => _repo.react(roomId, card.id, emoji);
 }
 
 final roomViewModelProvider = AutoDisposeNotifierProviderFamily<RoomViewModel,

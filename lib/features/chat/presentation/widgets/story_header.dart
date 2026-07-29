@@ -18,6 +18,7 @@ class StoryHeader extends StatelessWidget {
     this.card,
     required this.onShelf,
     required this.onClose,
+    this.onLeave,
   });
 
   final String senderName;
@@ -25,6 +26,7 @@ class StoryHeader extends StatelessWidget {
   final SpaceCard? card;
   final VoidCallback onShelf;
   final VoidCallback onClose;
+  final VoidCallback? onLeave;
 
   String get _meta {
     final c = card;
@@ -64,6 +66,12 @@ class StoryHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (onLeave != null)
+            IconButton(
+              tooltip: 'Leave quietly',
+              onPressed: onLeave,
+              icon: Icon(Icons.logout_rounded, size: 19, color: context.muted),
+            ),
           IconButton(
             tooltip: 'Shared shelf',
             onPressed: onShelf,

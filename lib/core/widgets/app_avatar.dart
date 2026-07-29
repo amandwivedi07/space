@@ -6,7 +6,10 @@ import '../constants/palettes.dart';
 import '../extensions/string_x.dart';
 import '../theme/app_typography.dart';
 
-/// Gradient avatar with initial, optional local photo, ring and size presets.
+/// Gradient avatar with initial, ring and size presets. A picture wins when
+/// there is one: [photoPath] for a locally chosen file, [avatarUrl] for the
+/// Google photo the identity provider gave us. Apple hands over no picture, so
+/// the initial is the normal case there rather than a failure.
 class AppAvatar extends StatelessWidget {
   const AppAvatar({
     super.key,
@@ -14,6 +17,7 @@ class AppAvatar extends StatelessWidget {
     this.palette = SpacePalette.ember,
     this.size = 48,
     this.photoPath,
+    this.avatarUrl,
     this.ringColor,
   });
 
@@ -21,11 +25,17 @@ class AppAvatar extends StatelessWidget {
   final SpacePalette palette;
   final double size;
   final String? photoPath;
+  final String? avatarUrl;
   final Color? ringColor;
 
   @override
   Widget build(BuildContext context) {
-    final hasPhoto = photoPath != null && photoPath!.isNotEmpty;
+    final ImageProvider? photo = switch ((photoPath, avatarUrl)) {
+      (final p?, _) when p.isNotEmpty => FileImage(File(p)),
+      (_, final u?) when u.isNotEmpty => NetworkImage(u),
+      _ => null,
+    };
+    final hasPhoto = photo != null;
     return Container(
       width: size,
       height: size,
@@ -33,8 +43,8 @@ class AppAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: hasPhoto ? null : palette.gradient,
         image: hasPhoto
-            ? DecorationImage(
-                image: FileImage(File(photoPath!)), fit: BoxFit.cover)
+            // A photo that fails to load falls back to the gradient beneath it.
+            ? DecorationImage(image: photo, fit: BoxFit.cover)
             : null,
         border: ringColor == null
             ? Border.all(color: Colors.black.withValues(alpha: 0.06))

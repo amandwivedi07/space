@@ -31,9 +31,28 @@ class StoryCardView extends StatelessWidget {
     if (_veiled) {
       body = const _ViewOnceVeil();
     } else if (card.type == CardType.text) {
-      body = Text(
-        card.body,
-        style: AppTypography.display(context.ink, _fontSize(card.body)),
+      body = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            card.body,
+            style: AppTypography.display(context.ink, _fontSize(card.body)),
+          ),
+          if (card.aiGenerated) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: context.ink.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(AppStrings.sentWithAi,
+                  style: AppTypography.mono(context.muted, 8)),
+            ),
+          ],
+        ],
       );
     } else {
       // Media/voice/link render with their own chrome inside the bubble.
@@ -48,7 +67,13 @@ class StoryCardView extends StatelessWidget {
           constraints: BoxConstraints(
             maxWidth: MediaQuery.sizeOf(context).width * 0.78,
           ),
-          child: Container(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: card.isMine
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
+            children: [
+              Container(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
             decoration: BoxDecoration(
               color: context.colors.surface,
@@ -68,7 +93,27 @@ class StoryCardView extends StatelessWidget {
                 ),
               ],
             ),
-            child: body,
+                child: body,
+              ),
+              if (card.reactions.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: context.colors.surface,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                          color: context.ink.withValues(alpha: 0.06)),
+                    ),
+                    child: Text(
+                      card.reactions.take(8).join(' '),
+                      style: const TextStyle(fontSize: 15),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

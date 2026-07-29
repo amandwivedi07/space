@@ -3,9 +3,13 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/fade_options.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/realtime_client.dart';
 import '../../../../core/utils/id_generator.dart';
+import '../../../authentication/presentation/viewmodels/auth_viewmodel.dart';
 import '../datasources/chat_mock_datasource.dart';
 import '../models/space_card.dart';
+import 'api_chat_repository.dart';
 
 /// Chat contract. The realtime implementation keeps this exact surface.
 abstract class ChatRepository {
@@ -16,6 +20,7 @@ abstract class ChatRepository {
   void setKept(String roomId, String cardId, bool kept);
   void consumeViewOnce(String roomId, String cardId);
   void delete(String roomId, String cardId);
+  void react(String roomId, String cardId, String emoji);
 }
 
 class MockChatRepository implements ChatRepository {
@@ -96,6 +101,13 @@ class MockChatRepository implements ChatRepository {
 
   @override
   void delete(String roomId, String cardId) => _source.remove(roomId, cardId);
+
+  @override
+  void react(String roomId, String cardId, String emoji) => _source.update(
+        roomId,
+        (c) => SpaceCard.fromJson({...c.toJson(), 'reactions': [...c.reactions, emoji]}),
+        where: (c) => c.id == cardId,
+      );
 }
 
 final chatDataSourceProvider = Provider<ChatMockDataSource>((ref) {
@@ -104,6 +116,14 @@ final chatDataSourceProvider = Provider<ChatMockDataSource>((ref) {
   return source;
 });
 
-final chatRepositoryProvider = Provider<ChatRepository>(
-  (ref) => MockChatRepository(ref.watch(chatDataSourceProvider)),
-);
+/// Live: cards come from the Space Talk backend (polled per open room).
+/// Swap back to MockChatRepository for offline demos.
+final chatRepositoryProvider = Provider<ChatRepository>((ref) {
+  final repo = ApiChatRepository(
+    ref.watch(apiClientProvider),
+    () => ref.read(authViewModelProvider).user?.id ?? '',
+    events: ref.watch(realtimeClientProvider).events,
+  );
+  ref.onDispose(repo.dispose);
+  return repo;
+});

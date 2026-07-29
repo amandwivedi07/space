@@ -7,6 +7,7 @@ import '../../../../core/extensions/context_x.dart';
 import '../../../../core/routes/route_names.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../../authentication/presentation/viewmodels/auth_viewmodel.dart';
 import '../../data/models/circle_space.dart';
 import '../../data/models/person.dart';
@@ -14,6 +15,7 @@ import '../../data/repositories/spaces_repository.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../widgets/cluster_grid.dart';
 import '../widgets/new_space_sheet.dart';
+import '../widgets/requests_strip.dart';
 import '../widgets/search_overlay.dart';
 
 /// Home — the drifting cluster of everyone you share space with.
@@ -34,6 +36,27 @@ class HomeScreen extends ConsumerWidget {
     context.push(RouteNames.circleRoom(circle.id));
   }
 
+  /// Accept or decline an invitation, then let the toast confirm what changed.
+  Future<void> _answerRequest(
+    BuildContext context,
+    WidgetRef ref,
+    Person person, {
+    required bool accept,
+  }) async {
+    final repo = ref.read(spacesRepositoryProvider);
+    final result = accept
+        ? await repo.acceptRequest(person.id)
+        : await repo.declineRequest(person.id);
+    if (!context.mounted) return;
+    result.when(
+      success: (_) => AppToast.show(
+        context,
+        accept ? 'You and ${person.name} share a space now' : 'Declined quietly',
+      ),
+      failure: (message) => AppToast.show(context, message),
+    );
+  }
+
   Future<void> _beginSpace(BuildContext context) async {
     final route = await NewSpaceSheet.show(context);
     if (route != null && context.mounted) context.push(route);
@@ -44,8 +67,13 @@ class HomeScreen extends ConsumerWidget {
     final state = ref.watch(homeViewModelProvider);
     final vm = ref.read(homeViewModelProvider.notifier);
     final repo = ref.read(spacesRepositoryProvider);
-    final userName =
-        ref.watch(authViewModelProvider.select((s) => s.user?.name ?? ''));
+    // Greet by first name — identity providers hand us the full legal name,
+    // which reads far too formal in a sentence.
+    final userName = ref.watch(
+      authViewModelProvider.select(
+        (s) => (s.user?.name ?? '').trim().split(RegExp(r'\s+')).first,
+      ),
+    );
 
     return Scaffold(
       body: SafeArea(
@@ -58,9 +86,16 @@ class HomeScreen extends ConsumerWidget {
                   onSearch: () => vm.toggleSearch(true),
                   onProfile: () => context.push(RouteNames.profile),
                 ),
+                RequestsStrip(
+                  people: state.people,
+                  onAccept: (p) => _answerRequest(context, ref, p, accept: true),
+                  onDecline: (p) => _answerRequest(context, ref, p, accept: false),
+                ),
                 Expanded(
                   child: ClusterGrid(
-                    people: state.people,
+                    people: state.people
+                        .where((p) => !p.awaitingAnswer)
+                        .toList(),
                     circles: state.circles,
                     membersOf: (circle) => circle.memberIds
                         .map(repo.personById)

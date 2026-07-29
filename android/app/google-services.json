@@ -1,0 +1,70 @@
+{
+  "project_info": {
+    "project_number": "809605119374",
+    "project_id": "space-chat-9a160",
+    "storage_bucket": "space-chat-9a160.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:809605119374:android:830728feefe0ab5969f8df",
+        "android_client_info": {
+          "package_name": "com.talkinspace.talkinspace"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "809605119374-ehhcd7vo4u14rc6fc6u090ho40ne0bqg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.talkinspace.talkinspace",
+            "certificate_hash": "5965518f93632aaa76f1087a01fb9ddc0360a2b6"
+          }
+        },
+        {
+          "client_id": "809605119374-li1fda8ncsva56tjdfmqv8429hv3n5nl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.talkinspace.talkinspace",
+            "certificate_hash": "5277612f8e051315a0bb53e64bdf37cedfc8221d"
+          }
+        },
+        {
+          "client_id": "809605119374-n1co9p41qldtfsvveri86didsc1mebc5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.talkinspace.talkinspace",
+            "certificate_hash": "d3cc09fd98aac0b4b41382ba4768f41a5bba398c"
+          }
+        },
+        {
+          "client_id": "809605119374-664lv2t0bokdatl8oujmpn9ibacraka7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzLDydvTMr6_I_roSaIXC6ic72YHSGknQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "809605119374-664lv2t0bokdatl8oujmpn9ibacraka7.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "809605119374-16u26mbpic69rctqrrp2jgq3phldm6tb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.talkinspace.talkinspace"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

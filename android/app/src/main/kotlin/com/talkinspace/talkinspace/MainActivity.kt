@@ -1,4 +1,4 @@
-package ai.velaapp.space_flutter
+package com.talkinspace.talkinspace
 
 import io.flutter.embedding.android.FlutterActivity
 

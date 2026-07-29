@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/extensions/context_x.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/media_picker_service.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../space_ai/data/models/ai_result.dart';
@@ -20,6 +22,29 @@ class Composer extends ConsumerStatefulWidget {
 
   final String roomId;
   final String hint;
+
+  /// Opens SpaceAI and handles the outcome. Drafts SEND DIRECTLY (like the
+  /// web app) — the card carries the "Sent with SpaceAI." mark.
+  static Future<void> openSpaceAi(
+      BuildContext context, WidgetRef ref, String roomId) async {
+    final outcome = await SpaceAiSheet.show(context);
+    if (outcome == null || !context.mounted) return;
+    final vm = ref.read(roomViewModelProvider(roomId).notifier);
+    switch (outcome) {
+      case AiDraftChosen(:final text):
+        vm.sendAiText(text);
+        AppToast.show(context, AppStrings.sentWithAi,
+            icon: Icons.auto_awesome);
+      case AiMediaReady(:final kind, :final prompt, :final seed):
+        if (kind == AiKind.image) {
+          vm.sendAiImage(prompt, seed);
+          AppToast.show(context, AppStrings.aiImageSent);
+        } else {
+          vm.sendAiVideo(prompt, seed);
+          AppToast.show(context, AppStrings.aiVideoSent);
+        }
+    }
+  }
 
   @override
   ConsumerState<Composer> createState() => _ComposerState();
@@ -54,15 +79,18 @@ class _ComposerState extends ConsumerState<Composer> {
     if (choice == null || !mounted) return;
     final picker = ref.read(mediaPickerProvider);
     switch (choice) {
-      case AttachChoice.photo:
-        final path = await picker.pickImage();
-        if (path != null) _sendWithToast(() => _vm.sendPhoto(path), AppStrings.photoSent);
       case AttachChoice.camera:
         final path = await picker.pickImage(fromCamera: true);
-        if (path != null) _sendWithToast(() => _vm.sendPhoto(path), AppStrings.photoSent);
-      case AttachChoice.video:
+        if (path != null) await _uploadAndSend(path, isVideo: false);
+      case AttachChoice.recordVideo:
         final path = await picker.pickVideo(fromCamera: true);
-        if (path != null) _sendWithToast(() => _vm.sendVideo(path), AppStrings.videoSent);
+        if (path != null) await _uploadAndSend(path, isVideo: true);
+      case AttachChoice.photo:
+        final path = await picker.pickImage();
+        if (path != null) await _uploadAndSend(path, isVideo: false);
+      case AttachChoice.video:
+        final path = await picker.pickVideo();
+        if (path != null) await _uploadAndSend(path, isVideo: true);
       case AttachChoice.link:
         if (!mounted) return;
         final link = await LinkDialog.show(context);
@@ -73,21 +101,33 @@ class _ComposerState extends ConsumerState<Composer> {
     }
   }
 
-  Future<void> _openAi() async {
-    final outcome = await SpaceAiSheet.show(context);
-    if (outcome == null || !mounted) return;
-    switch (outcome) {
-      case AiDraftChosen(:final text):
-        _controller.text = text;
-        setState(() {});
-      case AiMediaReady(:final kind, :final prompt, :final seed):
-        if (kind == AiKind.image) {
-          _sendWithToast(() => _vm.sendAiImage(prompt, seed), AppStrings.aiImageSent);
-        } else {
-          _sendWithToast(() => _vm.sendAiVideo(prompt, seed), AppStrings.aiVideoSent);
-        }
+  /// Uploads the picked file to POST /media, then sends the card with its URL.
+  Future<void> _uploadAndSend(String path, {required bool isVideo}) async {
+    if (mounted) AppToast.show(context, 'Sending…', icon: Icons.cloud_upload_outlined);
+    try {
+      final url = await ref.read(apiClientProvider).upload(path);
+      isVideo ? _vm.sendVideo(url) : _vm.sendPhoto(url);
+      if (mounted) {
+        AppToast.show(
+            context, isVideo ? AppStrings.videoSent : AppStrings.photoSent);
+      }
+    } on ApiException catch (e) {
+      if (mounted) AppToast.show(context, e.message);
     }
   }
+
+  /// Uploads the recorded audio, then sends the voice card with its URL.
+  Future<void> _uploadAndSendVoice(String path, int seconds) async {
+    try {
+      final url = await ref.read(apiClientProvider).upload(path);
+      _vm.sendVoice(seconds, url: url);
+      if (mounted) AppToast.show(context, AppStrings.voiceNoteSent);
+    } on ApiException catch (e) {
+      if (mounted) AppToast.show(context, e.message);
+    }
+  }
+
+  Future<void> _openAi() => Composer.openSpaceAi(context, ref, widget.roomId);
 
   void _sendWithToast(VoidCallback send, String message) {
     send();
@@ -162,10 +202,7 @@ class _ComposerState extends ConsumerState<Composer> {
                         color: context.theme.scaffoldBackgroundColor, size: 20),
                   )
                 else
-                  VoiceRecordButton(
-                    onRecorded: (seconds) => _sendWithToast(
-                        () => _vm.sendVoice(seconds), AppStrings.voiceNoteSent),
-                  ),
+                  VoiceRecordButton(onRecorded: _uploadAndSendVoice),
               ],
             ),
           ],

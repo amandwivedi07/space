@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/extensions/context_x.dart';
-import '../../../../core/widgets/app_card.dart';
+import '../../../../core/theme/app_typography.dart';
 
-/// Three draft variants — tap one to use it.
+/// Three draft variants, styled like the web app: dark pills with italic
+/// serif copy and a "SEND →" affordance. Tapping SENDS the card directly.
 class AiDraftList extends StatelessWidget {
   const AiDraftList({super.key, required this.drafts, required this.onChoose});
 
@@ -12,23 +13,31 @@ class AiDraftList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onInk = context.theme.scaffoldBackgroundColor;
     return Column(
       children: [
         for (final draft in drafts)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: AppCard(
-              onTap: () => onChoose(draft),
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  Expanded(
-                      child:
-                          Text(draft, style: context.text.bodyMedium)),
-                  const SizedBox(width: 8),
-                  Icon(Icons.north_east_rounded,
-                      size: 14, color: context.muted),
-                ],
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Material(
+              color: context.ink,
+              borderRadius: BorderRadius.circular(22),
+              child: InkWell(
+                onTap: () => onChoose(draft),
+                borderRadius: BorderRadius.circular(22),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(draft, style: AppTypography.display(onInk, 16)),
+                      const SizedBox(height: 8),
+                      Text('SEND →',
+                          style: AppTypography.mono(
+                              onInk.withValues(alpha: 0.65), 9)),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

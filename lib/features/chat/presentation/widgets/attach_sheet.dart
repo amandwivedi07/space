@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/constants/app_strings.dart';
 import '../../../../core/extensions/context_x.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/app_bottom_sheet.dart';
 
-enum AttachChoice { photo, camera, video, link }
+enum AttachChoice { camera, recordVideo, photo, video, link }
 
-/// What to attach: photo, camera capture, a short video, or a link.
+/// The attach menu: Camera · Record video · Photo · Video · Link.
+/// (Documents are omitted until a real file picker + upload is wired.)
 class AttachSheet extends StatelessWidget {
   const AttachSheet({super.key});
 
@@ -20,30 +21,36 @@ class AttachSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       children: [
         _AttachTile(
-          icon: Icons.photo_outlined,
-          title: AppStrings.sendAPhoto,
-          subtitle: 'From your library',
-          choice: AttachChoice.photo,
-        ),
-        _AttachTile(
           icon: Icons.photo_camera_outlined,
-          title: 'Capture a photo',
-          subtitle: 'Straight from the lens',
+          title: 'Camera',
+          subtitle: 'TAKE A PHOTO NOW',
           choice: AttachChoice.camera,
         ),
         _AttachTile(
           icon: Icons.videocam_outlined,
-          title: AppStrings.recordInstantVideo,
-          subtitle: 'A clip up to thirty seconds',
+          title: 'Record video',
+          subtitle: 'CAPTURE LIVE',
+          choice: AttachChoice.recordVideo,
+        ),
+        _AttachTile(
+          icon: Icons.photo_outlined,
+          title: 'Photo',
+          subtitle: 'FROM GALLERY',
+          choice: AttachChoice.photo,
+        ),
+        _AttachTile(
+          icon: Icons.video_library_outlined,
+          title: 'Video',
+          subtitle: 'FROM GALLERY',
           choice: AttachChoice.video,
         ),
         _AttachTile(
           icon: Icons.link_rounded,
-          title: AppStrings.pasteALink,
-          subtitle: 'With a comment on top',
+          title: 'Link',
+          subtitle: 'PASTE A URL',
           choice: AttachChoice.link,
         ),
       ],
@@ -77,8 +84,12 @@ class _AttachTile extends StatelessWidget {
         ),
         child: Icon(icon, size: 20, color: context.ink),
       ),
-      title: Text(title, style: context.text.titleSmall),
-      subtitle: Text(subtitle, style: context.text.bodySmall),
+      title:
+          Text(title, style: AppTypography.display(context.ink, 17)),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: Text(subtitle, style: AppTypography.mono(context.muted, 8)),
+      ),
       onTap: () => Navigator.of(context).pop(choice),
     );
   }

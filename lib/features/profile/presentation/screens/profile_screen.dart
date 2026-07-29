@@ -6,10 +6,12 @@ import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/palettes.dart';
 import '../../../../core/extensions/context_x.dart';
 import '../../../../core/helpers/responsive.dart';
+import '../../../../core/routes/route_names.dart';
 import '../../../../core/services/media_picker_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/app_avatar.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/widgets/space_app_bar.dart';
@@ -29,7 +31,6 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late final TextEditingController _name;
-  late final TextEditingController _handle;
   late final TextEditingController _note;
 
   @override
@@ -37,14 +38,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     super.initState();
     final user = ref.read(authViewModelProvider).user;
     _name = TextEditingController(text: user?.name ?? '');
-    _handle = TextEditingController(text: user?.handle ?? '');
     _note = TextEditingController(text: user?.note ?? '');
   }
 
   @override
   void dispose() {
     _name.dispose();
-    _handle.dispose();
     _note.dispose();
     super.dispose();
   }
@@ -55,7 +54,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final ok = await ref.read(authViewModelProvider.notifier).updateProfile(
           user.copyWith(
             name: _name.text.trim(),
-            handle: _handle.text.trim(),
             note: _note.text.trim(),
           ),
         );
@@ -63,6 +61,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       AppToast.show(context, AppStrings.savedLocally,
           icon: Icons.check_rounded);
     }
+  }
+
+  /// Two-step confirmation: this is irreversible and Apple requires it be
+  /// reachable in-app.
+  Future<void> _deleteAccount() async {
+    final sure = await AppDialog.confirm(
+      context,
+      title: 'Delete your account?',
+      body: 'Your profile, spaces and every card you sent will be gone. '
+          'This cannot be undone.',
+      confirmLabel: 'Delete everything',
+      destructive: true,
+    );
+    if (!sure || !mounted) return;
+    final result = await ref.read(authViewModelProvider.notifier).deleteAccount();
+    if (!mounted) return;
+    result.when(
+      success: (_) {
+        context.go(RouteNames.onboarding);
+        AppToast.show(context, 'Your account is gone. Take care.');
+      },
+      failure: (message) => AppToast.show(context, message),
+    );
   }
 
   Future<void> _changePhoto() async {
@@ -96,6 +117,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             children: [
               Text(AppStrings.profileSubtitle, style: context.text.bodySmall),
               const SizedBox(height: 24),
+              
               Center(
                 child: Column(
                   children: [
@@ -106,6 +128,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         palette: SpacePalette.byId(user?.paletteId),
                         size: 96,
                         photoPath: user?.photoPath,
+                        avatarUrl: user?.avatarUrl,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -123,7 +146,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   label: AppStrings.yourName,
                   textCapitalization: TextCapitalization.words),
               const SizedBox(height: 16),
-              AppTextField(controller: _handle, label: AppStrings.handle),
+              _HandleRow(handle: user?.handle ?? ''),
               const SizedBox(height: 16),
               AppTextField(
                 controller: _note,
@@ -164,13 +187,70 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onChanged: settingsVm.setDefaultFade,
               ),
               const SizedBox(height: 32),
+              if (user != null)
+                Center(
+                  child: Text(user.email, style: context.text.bodySmall),
+                ),
+              const SizedBox(height: 12),
+              AppButton(
+                label: AppStrings.signOutButton,
+                variant: AppButtonVariant.soft,
+                expanded: true,
+                onPressed: () async {
+                  await ref.read(authViewModelProvider.notifier).signOut();
+                  if (context.mounted) context.go(RouteNames.onboarding);
+                },
+              ),
+              const SizedBox(height: 28),
+              Text('DANGER', style: AppTypography.mono(context.muted, 10)),
+              const SizedBox(height: 12),
+              AppButton(
+                label: 'Delete my account',
+                variant: AppButtonVariant.danger,
+                expanded: true,
+                busy: auth.saving,
+                onPressed: _deleteAccount,
+              ),
+              const SizedBox(height: 8),
               Center(
-                child: Text(AppStrings.savedLocally,
-                    style: context.text.bodySmall),
+                child: Text(
+                  'Deletes your spaces, cards and profile for good.',
+                  textAlign: TextAlign.center,
+                  style: context.text.bodySmall,
+                ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The @handle is derived from your email address, so it is shown rather than
+/// edited — it is what lets people tell you apart from someone with the same
+/// display name.
+class _HandleRow extends StatelessWidget {
+  const _HandleRow({required this.handle});
+
+  final String handle;
+
+  @override
+  Widget build(BuildContext context) {
+    if (handle.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(AppStrings.handle.toUpperCase(),
+              style: AppTypography.mono(context.muted, 10)),
+          const SizedBox(height: 6),
+          Text('@$handle', style: context.text.bodyLarge),
+          const SizedBox(height: 4),
+          Text('People find you by this. It comes from your email address.',
+              style: context.text.bodySmall),
+        ],
       ),
     );
   }

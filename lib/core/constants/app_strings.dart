@@ -13,6 +13,14 @@ class AppStrings {
   static const onboardingSubtitle =
       'How you appear to the people you share Space with';
   static const yourName = 'Your name';
+  static const email = 'Email';
+  static const password = 'Password';
+  static const newHere = 'New here';
+  static const haveAccount = 'I have an account';
+  static const welcomeBack = 'Welcome back';
+  static const welcomeBackSubtitle = 'Your spaces kept a seat for you.';
+  static const signInButton = 'Step back inside';
+  static const signOutButton = 'Leave this device quietly';
   static const handle = 'Handle';
   static const aShortNote = 'A short note';
   static const noteHint = 'Something only you would say';

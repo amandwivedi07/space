@@ -1,7 +1,7 @@
 name: space_flutter
 description: "Space — an ephemeral private messenger. Conversations are temporary, memories are intentional."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+41
 
 environment:
   sdk: ^3.12.1
@@ -17,11 +17,35 @@ dependencies:
   google_fonts: ^6.2.1
   intl: ^0.20.1
   flutter_staggered_grid_view: ^0.7.0
+  dio: ^5.11.0
+  web_socket_channel: ^3.0.3
+  record: ^7.1.1
+  path_provider: ^2.1.6
+  firebase_core: ^4.12.1
+  firebase_messaging: ^16.4.3
+  firebase_auth: ^6.5.6
+  google_sign_in: ^7.2.0
+  sign_in_with_apple: ^8.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/brand/
+
+# Launcher icons are generated from the brand assets — regenerate with
+# `dart run flutter_launcher_icons` after changing anything in assets/brand.
+flutter_launcher_icons:
+  image_path: "assets/brand/app-icon.png"
+  android: true
+  adaptive_icon_background: "#020307"
+  adaptive_icon_foreground: "assets/brand/app-icon-foreground.png"
+  # Android 13+ themed icon: the launcher tints this monochrome layer.
+  adaptive_icon_monochrome: "assets/brand/app-icon-foreground.png"
+  ios: true
+  remove_alpha_ios: true

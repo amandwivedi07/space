@@ -39,6 +39,7 @@ class PersonBubble extends StatelessWidget {
                   AppAvatar(
                     name: person.name,
                     palette: SpacePalette.byId(person.paletteId),
+                    avatarUrl: person.avatarUrl,
                     size: size,
                   ),
                   Positioned(

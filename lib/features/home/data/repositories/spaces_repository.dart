@@ -1,12 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/presence.dart';
-import '../../../../core/extensions/string_x.dart';
-import '../../../../core/utils/id_generator.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/network/realtime_client.dart';
+import '../../../../core/utils/result.dart';
+import '../../../authentication/presentation/viewmodels/auth_viewmodel.dart';
 import '../datasources/spaces_mock_datasource.dart';
+import '../datasources/spaces_remote_datasource.dart';
 import '../models/circle_space.dart';
+import '../models/directory_user.dart';
 import '../models/contact.dart';
 import '../models/person.dart';
+import 'api_spaces_repository.dart';
 
 /// Spaces contract: people, circles, contacts.
 abstract class SpacesRepository {
@@ -17,96 +21,66 @@ abstract class SpacesRepository {
   Stream<List<CircleSpace>> watchCircles();
   Person? personById(String id);
   CircleSpace? circleById(String id);
-  Person createPerson({required String name, required String paletteId, String? phone, bool pending});
-  CircleSpace createCircle({required String name, required List<String> memberIds});
+
+  /// Send a request to open a direct space with someone from the directory.
+  /// It stays pending until they accept.
+  Future<Result<Person>> createDirect(String userId);
+
+  /// Local-only pending invite bubble (contact not on Space yet).
+  Person createPerson(
+      {required String name, required String paletteId, String? phone, bool pending});
+
+  Future<Result<CircleSpace>> createCircle(
+      {required String name, required List<String> memberUserIds});
+
   void markRead(String id, {required bool isCircle});
+
+  /// Leave a space quietly (server removes membership).
+  Future<void> leave(String spaceId);
+
+  /// Answer an incoming request. Declining removes the space entirely.
+  Future<Result<void>> acceptRequest(String spaceId);
+  Future<Result<void>> declineRequest(String spaceId);
+
+
+  /// Find people by name, or by an exact email address.
+  Future<Result<List<DirectoryUser>>> searchDirectory(String query);
 }
 
-class MockSpacesRepository implements SpacesRepository {
-  MockSpacesRepository(this._source);
-
-  final SpacesMockDataSource _source;
-
-  @override
-  List<Person> get people => _source.people;
-  @override
-  List<CircleSpace> get circles => _source.circles;
-  @override
-  List<Contact> get contacts => _source.contacts;
-  @override
-  Stream<List<Person>> watchPeople() => _source.watchPeople();
-  @override
-  Stream<List<CircleSpace>> watchCircles() => _source.watchCircles();
-  @override
-  Person? personById(String id) => _source.personById(id);
-  @override
-  CircleSpace? circleById(String id) => _source.circleById(id);
-
-  @override
-  Person createPerson({
-    required String name,
-    required String paletteId,
-    String? phone,
-    bool pending = false,
-  }) {
-    final spot = _source.nextFreeSpot();
-    final person = Person(
-      id: IdGenerator.uniqueSlug(
-          name.slug.isEmpty ? 'friend' : name.slug, people.map((p) => p.id)),
-      name: name.trim(),
-      paletteId: paletteId,
-      sizeKey: 'md',
-      x: spot.x,
-      y: spot.y,
-      lastActivity: DateTime.now(),
-      phone: phone,
-      pending: pending,
-    );
-    _source.upsertPerson(person);
-    return person;
-  }
-
-  @override
-  CircleSpace createCircle(
-      {required String name, required List<String> memberIds}) {
-    final title = name.isBlank ? 'A small circle' : name.trim();
-    final spot = _source.nextFreeSpot();
-    final circle = CircleSpace(
-      id: IdGenerator.uniqueSlug(title.slug, circles.map((c) => c.id)),
-      name: title,
-      memberIds: memberIds,
-      sizeKey: memberIds.length >= 4 ? 'xl' : 'lg',
-      x: spot.x,
-      y: spot.y,
-      lastActivity: DateTime.now(),
-    );
-    _source.upsertCircle(circle);
-    return circle;
-  }
-
-  @override
-  void markRead(String id, {required bool isCircle}) {
-    if (isCircle) {
-      final circle = circleById(id);
-      if (circle != null && circle.unread > 0) {
-        _source.upsertCircle(circle.copyWith(unread: 0));
-      }
-    } else {
-      final person = personById(id);
-      if (person != null && person.unread > 0) {
-        _source.upsertPerson(
-            person.copyWith(unread: 0, presence: Presence.here));
-      }
-    }
-  }
-}
-
-final spacesDataSourceProvider = Provider<SpacesMockDataSource>((ref) {
-  final source = SpacesMockDataSource();
-  ref.onDispose(source.dispose);
-  return source;
-});
-
-final spacesRepositoryProvider = Provider<SpacesRepository>(
-  (ref) => MockSpacesRepository(ref.watch(spacesDataSourceProvider)),
+/// Live view of your direct spaces. Any screen can watch this to react when a
+/// space changes underneath it — a request being accepted, for instance —
+/// rather than reading a cached snapshot once.
+final peopleProvider = StreamProvider<List<Person>>(
+  (ref) => ref.watch(spacesRepositoryProvider).watchPeople(),
 );
+
+final spacesRepositoryProvider = Provider<SpacesRepository>((ref) {
+  final realtime = ref.watch(realtimeClientProvider);
+  final repo = ApiSpacesRepository(
+    SpacesRemoteDataSource(ref.watch(apiClientProvider)),
+    SpacesMockDataSource(), // still supplies the invite contacts list
+    events: realtime.events,
+  );
+  // Tell the repo who "me" is, now and whenever the session changes;
+  // the socket lives exactly as long as a session exists.
+  repo.myUserId = ref.read(authViewModelProvider).user?.id ?? '';
+  if (repo.myUserId.isNotEmpty) {
+    realtime.connect();
+    repo.refresh();
+  }
+  // Identity changes only — a profile save or a `saving` toggle must not
+  // tear down the socket.
+  ref.listen(authViewModelProvider.select((s) => s.user?.id ?? ''), (prev, id) {
+    if (prev == id) return;
+    repo.myUserId = id;
+    if (id.isEmpty) {
+      realtime.disconnect();
+      repo.clearLocal();
+    } else {
+      realtime.connect();
+      repo.refresh();
+    }
+  });
+  ref.onDispose(repo.dispose);
+  return repo;
+});

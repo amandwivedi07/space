@@ -22,6 +22,7 @@ class SpaceCard {
     this.kept = false,
     this.aiGenerated = false,
     this.aiSeed = 0,
+    this.reactions = const [],
   });
 
   final String id;
@@ -39,6 +40,7 @@ class SpaceCard {
   final bool kept;
   final bool aiGenerated;
   final int aiSeed; // deterministic gradient for mock AI media
+  final List<String> reactions; // emoji, arrival order
 
   bool get isMine => senderId == 'me';
   bool get isViewOnce => fade.isViewOnce;
@@ -85,6 +87,7 @@ class SpaceCard {
         kept: kept ?? this.kept,
         aiGenerated: aiGenerated,
         aiSeed: aiSeed,
+        reactions: reactions,
       );
 
   factory SpaceCard.fromJson(Map<String, dynamic> json) => SpaceCard(
@@ -104,6 +107,7 @@ class SpaceCard {
         kept: json['kept'] as bool? ?? false,
         aiGenerated: json['aiGenerated'] as bool? ?? false,
         aiSeed: (json['aiSeed'] as num?)?.toInt() ?? 0,
+        reactions: List<String>.from(json['reactions'] as List? ?? const []),
       );
 
   Map<String, dynamic> toJson() => {
@@ -122,5 +126,6 @@ class SpaceCard {
         'kept': kept,
         'aiGenerated': aiGenerated,
         'aiSeed': aiSeed,
+        'reactions': reactions,
       };
 }

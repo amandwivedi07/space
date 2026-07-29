@@ -9,6 +9,22 @@ class Validators {
     return null;
   }
 
+  static String? email(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return 'Your email opens the door';
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v)) {
+      return "That email doesn't look right";
+    }
+    return null;
+  }
+
+  static String? password(String? value) {
+    final v = value ?? '';
+    if (v.isEmpty) return 'A password keeps it yours';
+    if (v.length < 8) return 'At least 8 characters';
+    return null;
+  }
+
   static String? handle(String? value) {
     final v = value?.trim() ?? '';
     if (v.isEmpty) return null; // optional

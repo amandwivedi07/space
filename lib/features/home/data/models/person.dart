@@ -1,11 +1,24 @@
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/presence.dart';
 
+/// Where a direct space sits in the invitation dance.
+enum SpaceRequest {
+  /// Open — both people agreed, cards can flow.
+  none,
+
+  /// They asked; you have to accept or decline.
+  incoming,
+
+  /// You asked; nothing can be said until they accept.
+  outgoing,
+}
+
 /// A person you share a space with — one drifting bubble on the cluster.
 class Person {
   const Person({
     required this.id,
     required this.name,
+    this.userId = '',
     this.paletteId = 'ember',
     this.sizeKey = 'md',
     this.unread = 0,
@@ -15,9 +28,14 @@ class Person {
     required this.lastActivity,
     this.phone,
     this.pending = false,
+    this.request = SpaceRequest.none,
+    this.handle = '',
+    this.avatarUrl = '',
   });
 
+  /// With the live backend: id = space id, userId = the other member's user id.
   final String id;
+  final String userId;
   final String name;
   final String paletteId;
   final String sizeKey; // sm | md | lg | xl — closeness, not importance
@@ -27,7 +45,15 @@ class Person {
   final double y;
   final DateTime lastActivity;
   final String? phone;
-  final bool pending; // invited, not yet on Space
+  final bool pending; // local invite bubble: contact not on Space yet
+  final SpaceRequest request;
+
+  /// @handle from their email, and their Google photo when they have one.
+  final String handle;
+  final String avatarUrl;
+
+  /// True while this space is an unanswered invitation, either direction.
+  bool get awaitingAnswer => request != SpaceRequest.none;
 
   double get bubbleSize => switch (sizeKey) {
         'sm' => AppConstants.bubbleSm,
@@ -38,6 +64,12 @@ class Person {
 
   Person copyWith({int? unread, Presence? presence, DateTime? lastActivity}) =>
       Person(
+        request: request,
+        handle: handle,
+        avatarUrl: avatarUrl,
+        userId: userId,
+        phone: phone,
+        pending: pending,
         id: id,
         name: name,
         paletteId: paletteId,
@@ -47,8 +79,6 @@ class Person {
         x: x,
         y: y,
         lastActivity: lastActivity ?? this.lastActivity,
-        phone: phone,
-        pending: pending,
       );
 
   factory Person.fromJson(Map<String, dynamic> json) => Person(

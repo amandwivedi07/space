@@ -1,60 +1,72 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/palettes.dart';
+import '../../../../core/utils/result.dart';
 import '../../data/models/circle_space.dart';
 import '../../data/models/contact.dart';
+import '../../data/models/directory_user.dart';
 import '../../data/models/person.dart';
 import '../../data/repositories/spaces_repository.dart';
+
+enum NewSpaceMode { one, circle }
 
 /// State for the "Begin a new space" sheet.
 class NewSpaceState {
   const NewSpaceState({
     this.mode = NewSpaceMode.one,
     this.name = '',
-    this.paletteId = 'ember',
     this.memberIds = const {},
     this.query = '',
+    this.creating = false,
+    this.results = const [],
+    this.searching = false,
+    this.picked,
   });
 
   final NewSpaceMode mode;
-  final String name;
-  final String paletteId;
-  final Set<String> memberIds;
+  final String name; // circle name
+  final Set<String> memberIds; // selected Person ids (direct-space partners)
   final String query;
+  final bool creating;
+  final List<DirectoryUser> results; // directory matches for the one-person tab
+  final bool searching;
+  final DirectoryUser? picked; // the person chosen from those matches
 
   bool get canCreate => switch (mode) {
-        NewSpaceMode.one => name.trim().isNotEmpty,
+        NewSpaceMode.one => picked != null,
         NewSpaceMode.circle => memberIds.length >= 2,
       };
 
   NewSpaceState copyWith({
     NewSpaceMode? mode,
     String? name,
-    String? paletteId,
     Set<String>? memberIds,
     String? query,
+    bool? creating,
+    List<DirectoryUser>? results,
+    bool? searching,
+    DirectoryUser? picked,
+    bool clearPicked = false,
   }) =>
       NewSpaceState(
         mode: mode ?? this.mode,
         name: name ?? this.name,
-        paletteId: paletteId ?? this.paletteId,
         memberIds: memberIds ?? this.memberIds,
         query: query ?? this.query,
+        creating: creating ?? this.creating,
+        results: results ?? this.results,
+        searching: searching ?? this.searching,
+        picked: clearPicked ? null : (picked ?? this.picked),
       );
 }
-
-enum NewSpaceMode { one, circle }
 
 class NewSpaceViewModel extends AutoDisposeNotifier<NewSpaceState> {
   SpacesRepository get _repo => ref.read(spacesRepositoryProvider);
 
   @override
-  NewSpaceState build() =>
-      NewSpaceState(paletteId: SpacePalette.all.first.id);
+  NewSpaceState build() => const NewSpaceState();
 
   void setMode(NewSpaceMode mode) => state = state.copyWith(mode: mode);
   void setName(String name) => state = state.copyWith(name: name);
-  void setPalette(String id) => state = state.copyWith(paletteId: id);
   void setQuery(String query) => state = state.copyWith(query: query);
 
   void toggleMember(String id) {
@@ -65,7 +77,7 @@ class NewSpaceViewModel extends AutoDisposeNotifier<NewSpaceState> {
 
   List<Person> get filteredPeople {
     final q = state.query.trim().toLowerCase();
-    final all = _repo.people;
+    final all = _repo.people.where((p) => !p.pending).toList();
     if (q.isEmpty) return all;
     return all.where((p) => p.name.toLowerCase().contains(q)).toList();
   }
@@ -81,15 +93,54 @@ class NewSpaceViewModel extends AutoDisposeNotifier<NewSpaceState> {
         .toList();
   }
 
-  Person createPerson() => _repo.createPerson(
-      name: state.name, paletteId: state.paletteId);
+  /// Search the people directory. Debounced by [_searchToken] so a slow
+  /// response for an old query can never overwrite a newer one.
+  Future<void> search(String query) async {
+    final q = query.trim();
+    state = state.copyWith(query: q, clearPicked: true);
+    if (q.length < 2) {
+      state = state.copyWith(results: const [], searching: false);
+      return;
+    }
+    final token = ++_searchToken;
+    state = state.copyWith(searching: true);
+    final result = await _repo.searchDirectory(q);
+    if (token != _searchToken) return; // a newer query already went out
+    state = state.copyWith(
+      searching: false,
+      results: result.dataOrNull ?? const [],
+    );
+  }
 
-  CircleSpace createCircle() => _repo.createCircle(
-      name: state.name, memberIds: state.memberIds.toList());
+  int _searchToken = 0;
+
+  void pick(DirectoryUser user) => state = state.copyWith(picked: user);
+
+  /// Direct space with whoever was picked from the directory. [canCreate]
+  /// guarantees a pick exists before this runs.
+  Future<Result<Person>> createDirect() async {
+    state = state.copyWith(creating: true);
+    final result = await _repo.createDirect(state.picked!.id);
+    state = state.copyWith(creating: false);
+    return result;
+  }
+
+  /// Circle from selected direct-space partners (their user ids).
+  Future<Result<CircleSpace>> createCircle() async {
+    state = state.copyWith(creating: true);
+    final userIds = _repo.people
+        .where((p) => state.memberIds.contains(p.id) && p.userId.isNotEmpty)
+        .map((p) => p.userId)
+        .toList();
+    final result =
+        await _repo.createCircle(name: state.name, memberUserIds: userIds);
+    state = state.copyWith(creating: false);
+    return result;
+  }
 
   Person invitePending(Contact contact) => _repo.createPerson(
         name: contact.name,
-        paletteId: state.paletteId,
+        paletteId: 'sand',
         phone: contact.phone,
         pending: true,
       );

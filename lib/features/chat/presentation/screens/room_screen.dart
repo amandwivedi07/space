@@ -7,16 +7,19 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/palettes.dart';
+import '../../../../core/constants/presence.dart';
 import '../../../../core/extensions/context_x.dart';
 import '../../../../core/routes/route_names.dart';
-import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../authentication/presentation/viewmodels/auth_viewmodel.dart';
+import '../../../home/data/models/person.dart';
 import '../../../home/data/repositories/spaces_repository.dart';
 import '../../data/models/space_card.dart';
 import '../viewmodels/room_viewmodel.dart';
 import '../widgets/composer.dart';
+import '../widgets/pending_notice.dart';
+import '../widgets/empty_room_view.dart';
 import '../widgets/story_card_view.dart';
 import '../widgets/story_footer.dart';
 import '../widgets/story_header.dart';
@@ -99,6 +102,33 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     );
   }
 
+  Future<void> _leaveQuietly() async {
+    final sure = await AppDialog.confirm(
+      context,
+      title: AppStrings.leaveQuietly,
+      body: 'This space will slip off your cluster. No one is notified.',
+      confirmLabel: 'Leave',
+      destructive: true,
+    );
+    if (!sure || !mounted) return;
+    await ref.read(spacesRepositoryProvider).leave(widget.refId);
+    if (mounted) context.pop();
+  }
+
+  String _roomTitle() {
+    final repo = ref.read(spacesRepositoryProvider);
+    return isCircle
+        ? repo.circleById(widget.refId)?.name ?? 'A quiet circle'
+        : repo.personById(widget.refId)?.name ?? 'Someone';
+  }
+
+  Presence _roomPresence() {
+    final repo = ref.read(spacesRepositoryProvider);
+    return isCircle
+        ? repo.circleById(widget.refId)?.presence ?? Presence.away
+        : repo.personById(widget.refId)?.presence ?? Presence.away;
+  }
+
   (String, String) _senderOf(SpaceCard? card) {
     final repo = ref.read(spacesRepositoryProvider);
     if (card == null || !card.isMine) {
@@ -111,6 +141,25 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     }
     final me = ref.read(authViewModelProvider).user;
     return ('You', me?.paletteId ?? 'ember');
+  }
+
+  /// A direct space that is still an invitation: nothing may be sent yet.
+  /// Watched, not read — the room must unlock the moment they accept, without
+  /// the reader having to back out and come in again.
+  SpaceRequest? _pendingRequest() {
+    if (widget.kind != 'person') return null;
+    final live = ref.watch(peopleProvider).valueOrNull;
+    Person? person;
+    for (final p in live ?? const <Person>[]) {
+      if (p.id == widget.refId) {
+        person = p;
+        break;
+      }
+    }
+    // Before the first stream event, fall back to the cached snapshot.
+    person ??= ref.read(spacesRepositoryProvider).personById(widget.refId);
+    if (person == null || !person.awaitingAnswer) return null;
+    return person.request;
   }
 
   @override
@@ -156,6 +205,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                 onShelf: () =>
                     context.push(RouteNames.shelf(widget.kind, widget.refId)),
                 onClose: () => context.pop(),
+                onLeave: _leaveQuietly,
               ),
               Expanded(
                 child: GestureDetector(
@@ -165,11 +215,13 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                     if ((details.primaryVelocity ?? 0) > 500) context.pop();
                   },
                   child: current == null
-                      ? Center(
-                          child: Text(
-                            AppStrings.sayTheFirstThing,
-                            style: AppTypography.display(context.muted, 22),
-                          ),
+                      ? EmptyRoomView(
+                          name: senderName == 'You' ? _roomTitle() : senderName,
+                          paletteId: paletteId,
+                          presence: _roomPresence(),
+                          fade: state.fade,
+                          onOpenAi: () =>
+                              Composer.openSpaceAi(context, ref, roomId),
                         )
                       : StoryCardView(card: current),
                 ),
@@ -181,11 +233,17 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                   total: cards.length,
                   onReact: (emoji) => ref
                       .read(roomViewModelProvider(roomId).notifier)
-                      .sendText(emoji),
+                      .react(current, emoji),
                   onToggleKeep: () => _toggleKeep(current),
                   onDelete: () => _delete(current),
                 ),
-              Composer(roomId: roomId, hint: AppStrings.saySomething),
+              if (_pendingRequest() case final request?)
+                PendingNotice(request: request, name: _roomTitle())
+              else
+                Composer(
+                  roomId: roomId,
+                  hint: 'Ask SpaceAI or type to ${_roomTitle()}…',
+                ),
             ],
           ),
         ),
