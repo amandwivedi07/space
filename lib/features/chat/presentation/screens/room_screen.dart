@@ -14,6 +14,7 @@ import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../authentication/presentation/viewmodels/auth_viewmodel.dart';
 import '../../../home/data/models/person.dart';
+import '../../../space_ai/data/repositories/space_ai_repository.dart';
 import '../../../home/data/repositories/spaces_repository.dart';
 import '../../data/models/space_card.dart';
 import '../viewmodels/room_viewmodel.dart';
@@ -220,8 +221,12 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                           paletteId: paletteId,
                           presence: _roomPresence(),
                           fade: state.fade,
-                          onOpenAi: () =>
-                              Composer.openSpaceAi(context, ref, roomId),
+                          onOpenAi:
+                              (ref.watch(spaceAiAvailableProvider).valueOrNull ??
+                                      false)
+                                  ? () => Composer.openSpaceAi(
+                                      context, ref, roomId)
+                                  : null,
                         )
                       : StoryCardView(card: current),
                 ),

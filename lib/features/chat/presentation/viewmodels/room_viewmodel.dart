@@ -91,11 +91,11 @@ class RoomViewModel extends AutoDisposeFamilyNotifier<RoomState, String> {
   void sendLink(String url, {String comment = ''}) =>
       _repo.send(_draft(CardType.link, linkUrl: url, body: comment));
 
-  void sendAiImage(String prompt, int seed) => _repo.send(_draft(
-      CardType.aiImage, body: prompt, aiGenerated: true, aiSeed: seed));
-
-  void sendAiVideo(String prompt, int seed) => _repo.send(_draft(
-      CardType.aiVideo, body: prompt, aiGenerated: true, aiSeed: seed));
+  /// The picture already lives in our storage, so this is an ordinary media
+  /// card that happens to be flagged as generated. The prompt is deliberately
+  /// not sent: it was how you asked for the image, not a caption for it.
+  void sendAiImage(String url) => _repo.send(
+      _draft(CardType.aiImage, mediaPath: url, aiGenerated: true));
 
   void toggleKeep(SpaceCard card) =>
       _repo.setKept(roomId, card.id, !card.kept);

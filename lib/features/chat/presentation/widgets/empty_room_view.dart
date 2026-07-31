@@ -17,14 +17,16 @@ class EmptyRoomView extends StatelessWidget {
     required this.paletteId,
     required this.presence,
     required this.fade,
-    required this.onOpenAi,
+    this.onOpenAi,
   });
 
   final String name;
   final String paletteId;
   final Presence presence;
   final FadeOption fade;
-  final VoidCallback onOpenAi;
+  /// Null when SpaceAI is switched off server-side — the tile is then
+  /// hidden rather than shown and failing.
+  final VoidCallback? onOpenAi;
 
   String get _fadeSentence => switch (fade) {
         FadeOption.viewOnce => 'It shows once, then it is gone.',
@@ -85,7 +87,7 @@ class EmptyRoomView extends StatelessWidget {
             const SizedBox(height: 34),
             Text('CREATE WITH', style: AppTypography.mono(context.muted, 9)),
             const SizedBox(height: 12),
-            _SpaceAiTile(onTap: onOpenAi),
+            if (onOpenAi case final open?) _SpaceAiTile(onTap: open),
             const SizedBox(height: 36),
             Text(
               'CARDS FADE ${fade.label.toUpperCase()} AFTER SEEN · KEEP TO REMEMBER',

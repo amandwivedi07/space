@@ -138,13 +138,16 @@ class ApiClient {
     String path, {
     Object? body,
     Map<String, dynamic>? query,
+    /// Overrides the default read timeout for the few calls that are slow by
+    /// nature — image generation runs 30-60s on the model side.
+    Duration? receiveTimeout,
   }) async {
     try {
       final res = await _dio.request(
         path,
         data: body,
         queryParameters: query,
-        options: Options(method: method),
+        options: Options(method: method, receiveTimeout: receiveTimeout),
       );
       final envelope = res.data;
       if (envelope is Map<String, dynamic>) return envelope['data'];
@@ -166,8 +169,8 @@ class ApiClient {
 
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) =>
       request('GET', path, query: query);
-  Future<dynamic> post(String path, {Object? body}) =>
-      request('POST', path, body: body);
+  Future<dynamic> post(String path, {Object? body, Duration? receiveTimeout}) =>
+      request('POST', path, body: body, receiveTimeout: receiveTimeout);
   Future<dynamic> patch(String path, {Object? body}) =>
       request('PATCH', path, body: body);
   Future<dynamic> delete(String path) => request('DELETE', path);

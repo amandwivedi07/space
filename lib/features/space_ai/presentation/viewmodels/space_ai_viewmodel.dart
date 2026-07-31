@@ -61,14 +61,12 @@ class SpaceAiViewModel extends AutoDisposeNotifier<SpaceAiState> {
       stage: switch (state.mode) {
         AiKind.draft => AppStrings.draftIntro,
         AiKind.image => AppStrings.paintingImage,
-        AiKind.video => AppStrings.composingScene,
       },
     );
 
     final result = await switch (state.mode) {
       AiKind.draft => _repo.draftMessage(prompt),
       AiKind.image => _repo.generateImage(prompt),
-      AiKind.video => _repo.generateVideo(prompt),
     };
 
     result.when(

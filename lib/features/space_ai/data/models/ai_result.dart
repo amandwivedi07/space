@@ -1,8 +1,9 @@
-/// What SpaceAI can hand back.
-enum AiKind { draft, image, video }
+/// What SpaceAI can hand back. Video needs a model deployment we do not
+/// have, so it is deliberately absent rather than stubbed.
+enum AiKind { draft, image }
 
-/// A generated artefact. For mock media the [seed] drives a deterministic
-/// gradient; a real model API will populate [url] instead.
+/// A generated artefact: either phrasings to choose from, or a picture at
+/// [url] that can be sent straight on as a card.
 class AiResult {
   const AiResult({
     required this.kind,

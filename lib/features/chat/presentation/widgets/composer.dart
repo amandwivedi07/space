@@ -8,8 +8,8 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/media_picker_service.dart';
 import '../../../../core/widgets/app_toast.dart';
-import '../../../space_ai/data/models/ai_result.dart';
 import '../../../space_ai/presentation/widgets/space_ai_sheet.dart';
+import '../../../space_ai/data/repositories/space_ai_repository.dart';
 import '../viewmodels/room_viewmodel.dart';
 import 'attach_sheet.dart';
 import 'fade_timer_sheet.dart';
@@ -35,14 +35,13 @@ class Composer extends ConsumerStatefulWidget {
         vm.sendAiText(text);
         AppToast.show(context, AppStrings.sentWithAi,
             icon: Icons.auto_awesome);
-      case AiMediaReady(:final kind, :final prompt, :final seed):
-        if (kind == AiKind.image) {
-          vm.sendAiImage(prompt, seed);
-          AppToast.show(context, AppStrings.aiImageSent);
-        } else {
-          vm.sendAiVideo(prompt, seed);
-          AppToast.show(context, AppStrings.aiVideoSent);
+      case AiMediaReady(:final url):
+        if (url.isEmpty) {
+          AppToast.show(context, "That picture didn't come through");
+          return;
         }
+        vm.sendAiImage(url);
+        AppToast.show(context, AppStrings.aiImageSent);
     }
   }
 
@@ -177,11 +176,13 @@ class _ComposerState extends ConsumerState<Composer> {
                   icon: Icon(Icons.add_circle_outline_rounded,
                       color: context.ink),
                 ),
-                IconButton(
-                  onPressed: _openAi,
-                  tooltip: AppStrings.spaceAi,
-                  icon: Icon(Icons.auto_awesome_outlined, color: context.ink),
-                ),
+                // Hidden entirely when the server has no model credentials.
+                if (ref.watch(spaceAiAvailableProvider).valueOrNull ?? false)
+                  IconButton(
+                    onPressed: _openAi,
+                    tooltip: AppStrings.spaceAi,
+                    icon: Icon(Icons.auto_awesome_outlined, color: context.ink),
+                  ),
                 Expanded(
                   child: TextField(
                     controller: _controller,

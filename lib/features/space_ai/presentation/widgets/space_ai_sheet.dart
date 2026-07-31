@@ -23,11 +23,11 @@ class AiDraftChosen extends AiOutcome {
   final String text;
 }
 
+/// A generated picture, already stored server-side. [url] is a media URL the
+/// card endpoint accepts directly — no second upload.
 class AiMediaReady extends AiOutcome {
-  const AiMediaReady(this.kind, this.prompt, this.seed);
-  final AiKind kind;
-  final String prompt;
-  final int seed;
+  const AiMediaReady(this.url);
+  final String url;
 }
 
 /// The SpaceAI sheet: write with me, an image of…, a moving moment of….
@@ -70,18 +70,12 @@ class SpaceAiSheet extends ConsumerWidget {
             onTap: () => vm.setMode(AiKind.image),
           ),
           const SizedBox(width: 8),
-          AppChip(
-            label: 'Video',
-            selected: state.mode == AiKind.video,
-            onTap: () => vm.setMode(AiKind.video),
-          ),
         ]),
         const SizedBox(height: 16),
         AppTextField(
           hint: switch (state.mode) {
             AiKind.draft => AppStrings.whatToSay,
             AiKind.image => AppStrings.describeImage,
-            AiKind.video => AppStrings.describeMoment,
           },
           onChanged: vm.setPrompt,
           maxLines: 2,
@@ -144,7 +138,7 @@ class _ResultView extends StatelessWidget {
     return AiMediaPreview(
       result: result,
       onSend: () => Navigator.of(context)
-          .pop(AiMediaReady(result.kind, result.prompt, result.seed)),
+          .pop(AiMediaReady(result.url ?? '')),
     );
   }
 }

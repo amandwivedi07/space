@@ -109,13 +109,10 @@ class AppStrings {
   static const anImageOf = 'An image of…';
   static const describeImage = 'Describe an image to create.';
   static const aMovingMoment = 'A moving moment of…';
-  static const describeMoment = 'Describe a moving moment.';
   static const paintingImage = 'Painting your image…';
-  static const composingScene = 'Composing the scene…';
   static const bringingToLife = 'Bringing it to life…';
   static const sentWithAi = 'Sent with SpaceAI.';
   static const aiImageSent = 'AI image sent.';
-  static const aiVideoSent = 'AI video sent.';
 
   // Generic.
   static const somethingWentWrong = 'Something went wrong';
