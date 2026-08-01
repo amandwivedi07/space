@@ -8,6 +8,7 @@ import '../../../../core/network/realtime_client.dart';
 import '../../../../core/utils/id_generator.dart';
 import '../../../authentication/presentation/viewmodels/auth_viewmodel.dart';
 import '../datasources/chat_mock_datasource.dart';
+import '../../../../core/utils/result.dart';
 import '../models/space_card.dart';
 import 'api_chat_repository.dart';
 
@@ -17,9 +18,9 @@ abstract class ChatRepository {
   Stream<List<SpaceCard>> watchRoom(String roomId);
   SpaceCard send(SpaceCard card);
   void markRoomSeen(String roomId);
-  void setKept(String roomId, String cardId, bool kept);
+  Future<Result<void>> setKept(String roomId, String cardId, bool kept);
   void consumeViewOnce(String roomId, String cardId);
-  void delete(String roomId, String cardId);
+  Future<Result<void>> delete(String roomId, String cardId);
   void react(String roomId, String cardId, String emoji);
 }
 
@@ -86,11 +87,11 @@ class MockChatRepository implements ChatRepository {
       );
 
   @override
-  void setKept(String roomId, String cardId, bool kept) => _source.update(
-        roomId,
-        (c) => c.copyWith(kept: kept),
-        where: (c) => c.id == cardId,
-      );
+  Future<Result<void>> setKept(String roomId, String cardId, bool kept) async {
+    _source.update(roomId, (c) => c.copyWith(kept: kept),
+        where: (c) => c.id == cardId);
+    return const Success(null);
+  }
 
   @override
   void consumeViewOnce(String roomId, String cardId) => _source.update(
@@ -100,7 +101,10 @@ class MockChatRepository implements ChatRepository {
       );
 
   @override
-  void delete(String roomId, String cardId) => _source.remove(roomId, cardId);
+  Future<Result<void>> delete(String roomId, String cardId) async {
+    _source.remove(roomId, cardId);
+    return const Success(null);
+  }
 
   @override
   void react(String roomId, String cardId, String emoji) => _source.update(

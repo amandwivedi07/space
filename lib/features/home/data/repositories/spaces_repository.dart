@@ -4,19 +4,16 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/realtime_client.dart';
 import '../../../../core/utils/result.dart';
 import '../../../authentication/presentation/viewmodels/auth_viewmodel.dart';
-import '../datasources/spaces_mock_datasource.dart';
 import '../datasources/spaces_remote_datasource.dart';
 import '../models/circle_space.dart';
 import '../models/directory_user.dart';
-import '../models/contact.dart';
 import '../models/person.dart';
 import 'api_spaces_repository.dart';
 
-/// Spaces contract: people, circles, contacts.
+/// Spaces contract: the people and circles you share a space with.
 abstract class SpacesRepository {
   List<Person> get people;
   List<CircleSpace> get circles;
-  List<Contact> get contacts;
   Stream<List<Person>> watchPeople();
   Stream<List<CircleSpace>> watchCircles();
   Person? personById(String id);
@@ -25,10 +22,6 @@ abstract class SpacesRepository {
   /// Send a request to open a direct space with someone from the directory.
   /// It stays pending until they accept.
   Future<Result<Person>> createDirect(String userId);
-
-  /// Local-only pending invite bubble (contact not on Space yet).
-  Person createPerson(
-      {required String name, required String paletteId, String? phone, bool pending});
 
   Future<Result<CircleSpace>> createCircle(
       {required String name, required List<String> memberUserIds});
@@ -58,7 +51,6 @@ final spacesRepositoryProvider = Provider<SpacesRepository>((ref) {
   final realtime = ref.watch(realtimeClientProvider);
   final repo = ApiSpacesRepository(
     SpacesRemoteDataSource(ref.watch(apiClientProvider)),
-    SpacesMockDataSource(), // still supplies the invite contacts list
     events: realtime.events,
   );
   // Tell the repo who "me" is, now and whenever the session changes;

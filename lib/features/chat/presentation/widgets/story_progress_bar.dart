@@ -4,7 +4,7 @@ import '../../../../core/extensions/context_x.dart';
 import '../../data/models/space_card.dart';
 
 /// Instagram-style segmented progress: viewed cards full, the current one
-/// drains with its fade timer, upcoming ones dim.
+/// fills as its fade elapses, upcoming ones dim.
 class StoryProgressBar extends StatelessWidget {
   const StoryProgressBar({
     super.key,
@@ -21,8 +21,12 @@ class StoryProgressBar extends StatelessWidget {
     final card = cards[i];
     final total = card.fade.duration.inSeconds;
     final remaining = card.remaining;
+    // A kept card, or one whose clock has not started, has no elapsed time to
+    // show — a full bar reads as "this one is not going anywhere".
     if (remaining == null || total == 0) return 1;
-    return (remaining.inSeconds / total).clamp(0.0, 1.0);
+    // Elapsed, not remaining: the bar travels forward as the card runs out,
+    // the way a story segment does.
+    return (1 - remaining.inSeconds / total).clamp(0.0, 1.0);
   }
 
   @override

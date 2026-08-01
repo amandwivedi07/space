@@ -8,8 +8,8 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/app_avatar.dart';
 import '../../data/models/space_card.dart';
 
-/// Story header: who this card is from, when, how long it has left,
-/// plus shelf and close actions.
+/// Story header: who this card is from, when, how long it has left, plus
+/// keep, shelf and close actions.
 class StoryHeader extends StatelessWidget {
   const StoryHeader({
     super.key,
@@ -19,6 +19,7 @@ class StoryHeader extends StatelessWidget {
     required this.onShelf,
     required this.onClose,
     this.onLeave,
+    this.onToggleKeep,
   });
 
   final String senderName;
@@ -27,6 +28,10 @@ class StoryHeader extends StatelessWidget {
   final VoidCallback onShelf;
   final VoidCallback onClose;
   final VoidCallback? onLeave;
+
+  /// Keeps or releases the card on show. Null when the room is empty and
+  /// there is nothing to save.
+  final VoidCallback? onToggleKeep;
 
   String get _meta {
     final c = card;
@@ -75,9 +80,23 @@ class StoryHeader extends StatelessWidget {
           IconButton(
             tooltip: 'Shared shelf',
             onPressed: onShelf,
-            icon: Icon(Icons.bookmark_border_rounded,
-                size: 20, color: context.ink),
+            icon: Icon(Icons.collections_bookmark_outlined,
+                size: 19, color: context.muted),
           ),
+          // The bookmark saves this card. It used to open the shelf, which is
+          // the one thing a bookmark icon does not mean.
+          if (onToggleKeep != null && card != null)
+            IconButton(
+              tooltip: card!.kept ? 'Remove from the shelf' : 'Keep this',
+              onPressed: onToggleKeep,
+              icon: Icon(
+                card!.kept
+                    ? Icons.bookmark_rounded
+                    : Icons.bookmark_border_rounded,
+                size: 21,
+                color: card!.kept ? const Color(0xFFB05C3F) : context.ink,
+              ),
+            ),
           IconButton(
             tooltip: 'Leave quietly',
             onPressed: onClose,

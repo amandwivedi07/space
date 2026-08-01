@@ -4,6 +4,7 @@ import '../../../../core/constants/fade_options.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/logger_service.dart';
+import '../../../../core/utils/result.dart';
 import '../models/space_card.dart';
 import 'chat_repository.dart';
 
@@ -66,6 +67,7 @@ class ApiChatRepository implements ChatRepository {
       consumedAt:
           DateTime.tryParse(json['consumed_at'] as String? ?? '')?.toLocal(),
       kept: json['kept'] as bool? ?? false,
+      keptAt: DateTime.tryParse(json['kept_at'] as String? ?? '')?.toLocal(),
       aiGenerated: json['ai_generated'] as bool? ?? false,
       aiSeed: (json['ai_seed'] as num?)?.toInt() ?? 0,
       reactions: List<String>.from(json['reactions'] as List? ?? const []),
@@ -157,11 +159,17 @@ class ApiChatRepository implements ChatRepository {
   }
 
   @override
-  void setKept(String roomId, String cardId, bool kept) {
-    final call = kept
-        ? _client.post('/cards/$cardId/keep')
-        : _client.delete('/cards/$cardId/keep');
-    call.then((_) => _poll(roomId)).catchError((e) => Log.w('keep failed: $e'));
+  Future<Result<void>> setKept(String roomId, String cardId, bool kept) async {
+    try {
+      await (kept
+          ? _client.post('/cards/$cardId/keep')
+          : _client.delete('/cards/$cardId/keep'));
+      await _poll(roomId);
+      return const Success(null);
+    } on ApiException catch (e) {
+      Log.w('keep failed: $e');
+      return Failure(e.message);
+    }
   }
 
   @override
@@ -173,13 +181,22 @@ class ApiChatRepository implements ChatRepository {
   }
 
   @override
-  void delete(String roomId, String cardId) {
+  Future<Result<void>> delete(String roomId, String cardId) async {
+    // Optimistic: hide it now, but put it back if the server refuses —
+    // silently "deleting" something that still exists is the worst outcome.
+    final previous = List<SpaceCard>.from(_cache[roomId] ?? const []);
     _cache[roomId]?.removeWhere((c) => c.id == cardId);
     _controllers[roomId]?.add(cardsFor(roomId));
-    _client
-        .delete('/cards/$cardId')
-        .then((_) => _poll(roomId))
-        .catchError((e) => Log.w('delete failed: $e'));
+    try {
+      await _client.delete('/cards/$cardId');
+      await _poll(roomId);
+      return const Success(null);
+    } on ApiException catch (e) {
+      Log.w('delete failed: $e');
+      _cache[roomId] = previous;
+      _controllers[roomId]?.add(cardsFor(roomId));
+      return Failure(e.message);
+    }
   }
 
   @override

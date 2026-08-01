@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/result.dart';
 import '../../../chat/data/models/space_card.dart';
 import '../../../chat/data/repositories/chat_repository.dart';
 
@@ -8,8 +9,8 @@ import '../../../chat/data/repositories/chat_repository.dart';
 abstract class ShelfRepository {
   List<SpaceCard> keptFor(String roomId);
   Stream<List<SpaceCard>> watchShelf(String roomId);
-  void unkeep(String roomId, String cardId);
-  void deleteForEveryone(String roomId, String cardId);
+  Future<Result<void>> unkeep(String roomId, String cardId);
+  Future<Result<void>> deleteForEveryone(String roomId, String cardId);
 }
 
 class ChatBackedShelfRepository implements ShelfRepository {
@@ -29,11 +30,11 @@ class ChatBackedShelfRepository implements ShelfRepository {
       _chat.watchRoom(roomId).map(_onlyKept);
 
   @override
-  void unkeep(String roomId, String cardId) =>
+  Future<Result<void>> unkeep(String roomId, String cardId) =>
       _chat.setKept(roomId, cardId, false);
 
   @override
-  void deleteForEveryone(String roomId, String cardId) =>
+  Future<Result<void>> deleteForEveryone(String roomId, String cardId) =>
       _chat.delete(roomId, cardId);
 }
 

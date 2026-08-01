@@ -3,13 +3,10 @@ import 'dart:async';
 import '../../../../core/constants/presence.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/logger_service.dart';
-import '../../../../core/utils/id_generator.dart';
 import '../../../../core/utils/result.dart';
-import '../datasources/spaces_mock_datasource.dart';
 import '../datasources/spaces_remote_datasource.dart';
 import '../models/circle_space.dart';
 import '../models/directory_user.dart';
-import '../models/contact.dart';
 import '../models/person.dart';
 import 'spaces_repository.dart';
 
@@ -17,8 +14,7 @@ import 'spaces_repository.dart';
 /// Direct spaces surface as Person bubbles (id = space id); circles as
 /// CircleSpace. Member stubs let circles resolve names/palettes.
 class ApiSpacesRepository implements SpacesRepository {
-  ApiSpacesRepository(this._remote, this._seed,
-      {Stream<Map<String, dynamic>>? events}) {
+  ApiSpacesRepository(this._remote, {Stream<Map<String, dynamic>>? events}) {
     // WebSocket events drive updates; polling is only a 30s safety net.
     _timer = Timer.periodic(const Duration(seconds: 30), (_) => refresh());
     _eventsSub = events?.listen((event) {
@@ -31,12 +27,10 @@ class ApiSpacesRepository implements SpacesRepository {
   }
 
   final SpacesRemoteDataSource _remote;
-  final SpacesMockDataSource _seed; // invite contacts only
 
   List<Person> _people = [];
   List<CircleSpace> _circles = [];
   final Map<String, Person> _memberStubs = {}; // by user id, for circles
-  final List<Person> _pendingInvites = []; // local, not on Space yet
 
   final _peopleCtrl = StreamController<List<Person>>.broadcast();
   final _circlesCtrl = StreamController<List<CircleSpace>>.broadcast();
@@ -65,7 +59,7 @@ class ApiSpacesRepository implements SpacesRepository {
           circles.add(_toCircle(space, members));
         }
       }
-      _people = [...people, ..._pendingInvites];
+      _people = people;
       _circles = circles;
       _peopleCtrl.add(this.people);
       _circlesCtrl.add(this.circles);
@@ -77,17 +71,20 @@ class ApiSpacesRepository implements SpacesRepository {
   }
 
   Person _stub(Map<String, dynamic> m) => Person(
-        id: 'u:${m['user_id']}',
-        userId: m['user_id'] as String,
-        name: m['name'] as String? ?? 'Someone',
-        handle: m['handle'] as String? ?? '',
-        avatarUrl: m['avatar_url'] as String? ?? '',
-        paletteId: m['palette_id'] as String? ?? 'ember',
-        presence: Presence.fromId(m['presence'] as String?),
-        lastActivity: DateTime.now(),
-      );
+    id: 'u:${m['user_id']}',
+    userId: m['user_id'] as String,
+    name: m['name'] as String? ?? 'Someone',
+    handle: m['handle'] as String? ?? '',
+    avatarUrl: m['avatar_url'] as String? ?? '',
+    paletteId: m['palette_id'] as String? ?? 'ember',
+    presence: Presence.fromId(m['presence'] as String?),
+    lastActivity: DateTime.now(),
+  );
 
-  Person? _toPerson(Map<String, dynamic> space, List<Map<String, dynamic>> members) {
+  Person? _toPerson(
+    Map<String, dynamic> space,
+    List<Map<String, dynamic>> members,
+  ) {
     // The counterpart is whichever member isn't me.
     final notMe = members.where((m) => m['user_id'] != myUserId).toList();
     if (notMe.isEmpty) return null;
@@ -95,7 +92,7 @@ class ApiSpacesRepository implements SpacesRepository {
 
     final activity =
         DateTime.tryParse(space['last_activity_at'] as String? ?? '') ??
-            DateTime.now();
+        DateTime.now();
     // A pending space is an invitation; which way it points decides whether
     // this person can answer it or is the one waiting.
     final pendingRequest = space['status'] == 'pending';
@@ -103,8 +100,8 @@ class ApiSpacesRepository implements SpacesRepository {
     final request = !pendingRequest
         ? SpaceRequest.none
         : requestedBy == myUserId
-            ? SpaceRequest.outgoing
-            : SpaceRequest.incoming;
+        ? SpaceRequest.outgoing
+        : SpaceRequest.incoming;
 
     return Person(
       id: space['id'] as String,
@@ -121,12 +118,16 @@ class ApiSpacesRepository implements SpacesRepository {
     );
   }
 
-  CircleSpace _toCircle(Map<String, dynamic> space, List<Map<String, dynamic>> members) {
+  CircleSpace _toCircle(
+    Map<String, dynamic> space,
+    List<Map<String, dynamic>> members,
+  ) {
     final activity =
         DateTime.tryParse(space['last_activity_at'] as String? ?? '') ??
-            DateTime.now();
-    final presences =
-        members.map((m) => Presence.fromId(m['presence'] as String?));
+        DateTime.now();
+    final presences = members.map(
+      (m) => Presence.fromId(m['presence'] as String?),
+    );
     return CircleSpace(
       id: space['id'] as String,
       name: space['name'] as String? ?? 'A small circle',
@@ -138,8 +139,8 @@ class ApiSpacesRepository implements SpacesRepository {
       presence: presences.contains(Presence.here)
           ? Presence.here
           : presences.contains(Presence.recent)
-              ? Presence.recent
-              : Presence.away,
+          ? Presence.recent
+          : Presence.away,
       sizeKey: members.length >= 5 ? 'xl' : 'lg',
       lastActivity: activity,
     );
@@ -162,8 +163,6 @@ class ApiSpacesRepository implements SpacesRepository {
   List<Person> get people => List.unmodifiable(_people);
   @override
   List<CircleSpace> get circles => List.unmodifiable(_circles);
-  @override
-  List<Contact> get contacts => _seed.contacts;
   @override
   Stream<List<Person>> watchPeople() => _peopleCtrl.stream;
   @override
@@ -193,36 +192,19 @@ class ApiSpacesRepository implements SpacesRepository {
       await refresh();
       final person = personById(space['id'] as String);
       if (person != null) return Success(person);
-      return const Failure('Space created but not visible yet — pull to refresh');
+      return const Failure(
+        'Space created but not visible yet — pull to refresh',
+      );
     } on ApiException catch (e) {
       return Failure(e.message);
     }
   }
 
   @override
-  Person createPerson({
+  Future<Result<CircleSpace>> createCircle({
     required String name,
-    required String paletteId,
-    String? phone,
-    bool pending = false,
-  }) {
-    final person = Person(
-      id: IdGenerator.next('invite'),
-      name: name.trim(),
-      paletteId: paletteId,
-      pending: true,
-      phone: phone,
-      lastActivity: DateTime.now(),
-    );
-    _pendingInvites.add(person);
-    _people = [..._people, person];
-    _peopleCtrl.add(people);
-    return person;
-  }
-
-  @override
-  Future<Result<CircleSpace>> createCircle(
-      {required String name, required List<String> memberUserIds}) async {
+    required List<String> memberUserIds,
+  }) async {
     try {
       final space = await _remote.createCircle(name, memberUserIds);
       await refresh();
@@ -266,10 +248,9 @@ class ApiSpacesRepository implements SpacesRepository {
   Future<Result<List<DirectoryUser>>> searchDirectory(String query) async {
     try {
       final rows = await _remote.searchDirectory(query);
-      return Success(rows
-          .cast<Map<String, dynamic>>()
-          .map(DirectoryUser.fromJson)
-          .toList());
+      return Success(
+        rows.cast<Map<String, dynamic>>().map(DirectoryUser.fromJson).toList(),
+      );
     } on ApiException catch (e) {
       return Failure(e.message);
     }
@@ -285,7 +266,6 @@ class ApiSpacesRepository implements SpacesRepository {
   void clearLocal() {
     _people = [];
     _circles = [];
-    _pendingInvites.clear();
     _memberStubs.clear();
     _peopleCtrl.add(const []);
     _circlesCtrl.add(const []);

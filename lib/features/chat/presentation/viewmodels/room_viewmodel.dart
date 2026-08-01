@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/fade_options.dart';
 import '../../../../core/utils/id_generator.dart';
 import '../../../profile/presentation/viewmodels/settings_viewmodel.dart';
+import '../../../../core/utils/result.dart';
 import '../../data/models/space_card.dart';
 import '../../data/repositories/chat_repository.dart';
 
@@ -97,13 +98,14 @@ class RoomViewModel extends AutoDisposeFamilyNotifier<RoomState, String> {
   void sendAiImage(String url) => _repo.send(
       _draft(CardType.aiImage, mediaPath: url, aiGenerated: true));
 
-  void toggleKeep(SpaceCard card) =>
+  Future<Result<void>> toggleKeep(SpaceCard card) =>
       _repo.setKept(roomId, card.id, !card.kept);
 
   void revealViewOnce(SpaceCard card) =>
       _repo.consumeViewOnce(roomId, card.id);
 
-  void deleteCard(SpaceCard card) => _repo.delete(roomId, card.id);
+  Future<Result<void>> deleteCard(SpaceCard card) =>
+      _repo.delete(roomId, card.id);
 
   void react(SpaceCard card, String emoji) => _repo.react(roomId, card.id, emoji);
 }

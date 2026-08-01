@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/result.dart';
 import '../../../chat/data/models/space_card.dart';
 import '../../data/repositories/shelf_repository.dart';
 
@@ -16,9 +17,9 @@ class ShelfViewModel
     return repo.keptFor(arg);
   }
 
-  void unkeep(SpaceCard card) => _repo.unkeep(arg, card.id);
+  Future<Result<void>> unkeep(SpaceCard card) => _repo.unkeep(arg, card.id);
 
-  void deleteForEveryone(SpaceCard card) =>
+  Future<Result<void>> deleteForEveryone(SpaceCard card) =>
       _repo.deleteForEveryone(arg, card.id);
 }
 

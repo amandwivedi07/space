@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/result.dart';
 import '../../data/models/circle_space.dart';
-import '../../data/models/contact.dart';
 import '../../data/models/directory_user.dart';
 import '../../data/models/person.dart';
 import '../../data/repositories/spaces_repository.dart';
@@ -77,21 +76,11 @@ class NewSpaceViewModel extends AutoDisposeNotifier<NewSpaceState> {
 
   List<Person> get filteredPeople {
     final q = state.query.trim().toLowerCase();
-    final all = _repo.people.where((p) => !p.pending).toList();
+    final all = _repo.people.toList();
     if (q.isEmpty) return all;
     return all.where((p) => p.name.toLowerCase().contains(q)).toList();
   }
 
-  List<Contact> get filteredContacts {
-    final q = state.query.trim().toLowerCase();
-    final all = _repo.contacts.where((c) => !c.onSpace).toList();
-    if (q.isEmpty) return all;
-    return all
-        .where((c) =>
-            c.name.toLowerCase().contains(q) ||
-            c.phone.replaceAll(RegExp(r'\D'), '').contains(q))
-        .toList();
-  }
 
   /// Search the people directory. Debounced by [_searchToken] so a slow
   /// response for an old query can never overwrite a newer one.
@@ -138,12 +127,6 @@ class NewSpaceViewModel extends AutoDisposeNotifier<NewSpaceState> {
     return result;
   }
 
-  Person invitePending(Contact contact) => _repo.createPerson(
-        name: contact.name,
-        paletteId: 'sand',
-        phone: contact.phone,
-        pending: true,
-      );
 }
 
 final newSpaceViewModelProvider =

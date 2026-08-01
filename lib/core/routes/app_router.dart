@@ -56,6 +56,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => RoomScreen(
           kind: state.pathParameters['kind'] ?? 'person',
           refId: state.pathParameters['id'] ?? '',
+          // A shelf keepsake opens its room at that exact card.
+          initialCardId: state.uri.queryParameters['card'],
         ),
       ),
       GoRoute(

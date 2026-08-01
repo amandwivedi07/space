@@ -43,9 +43,6 @@ class AppStrings {
   static const circleNameHelper = 'Optional · the circle keeps it quiet';
   static const chooseAtLeastTwo = 'Choose at least two';
   static const alreadyOnSpace = 'Already on Space';
-  static const fromYourContacts = 'from your contacts';
-  static const notYetHere = 'not yet here';
-  static const inviteToSpace = 'Invite to Space';
   static const notNow = 'Not now';
 
   // Presence.

@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/extensions/context_x.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/space_card.dart';
 import 'card_content.dart';
+import 'full_bleed_link.dart';
+import 'media_card_content.dart';
 
 /// The current card, fullscreen story-style: a paper speech bubble drifting
 /// on the dark room — big italic serif for text, framed content for media.
-class StoryCardView extends StatelessWidget {
+class StoryCardView extends ConsumerWidget {
   const StoryCardView({super.key, required this.card});
 
   final SpaceCard card;
@@ -22,8 +25,54 @@ class StoryCardView extends StatelessWidget {
     return 18;
   }
 
+  bool get _isMedia => switch (card.type) {
+        CardType.photo ||
+        CardType.video ||
+        CardType.aiImage ||
+        CardType.aiVideo =>
+          true,
+        _ => false,
+      };
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // A shared link with a picture of its own gets the same treatment as a
+    // photo: the page fills the stage, its title over a scrim.
+    if (!_veiled) {
+      final preview = fullBleedLinkPreview(ref, card);
+      if (preview != null) {
+        return FullBleedLink(card: card, preview: preview);
+      }
+    }
+
+    // A picture is the message. Boxing it in a bubble makes it a thumbnail,
+    // so media takes the whole stage and the chrome floats on top of it.
+    if (_isMedia && !_veiled) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          FullBleedMedia(card: card),
+          if (card.reactions.isNotEmpty)
+            Positioned(
+              right: 20,
+              bottom: 22,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  card.reactions.take(8).join(' '),
+                  style: const TextStyle(fontSize: 15),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
     final alignment =
         card.isMine ? Alignment.centerRight : Alignment.centerLeft;
 

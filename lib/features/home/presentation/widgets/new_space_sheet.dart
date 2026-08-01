@@ -13,7 +13,6 @@ import '../../../../core/widgets/app_toast.dart';
 import '../../data/models/directory_user.dart';
 import '../viewmodels/new_space_viewmodel.dart';
 import 'directory_result_tile.dart';
-import 'invite_contact_tile.dart';
 import 'member_picker_grid.dart';
 
 /// "Begin a new space" — one person (by their Space email) or a small circle.
@@ -142,12 +141,6 @@ class _OnePersonFormState extends ConsumerState<_OnePersonForm> {
                 : 'No one on Space matches “${state.query}”.',
             style: context.text.bodySmall,
           ),
-        const SizedBox(height: 22),
-        Text(AppStrings.fromYourContacts.toUpperCase(),
-            style: context.text.labelSmall),
-        const SizedBox(height: 4),
-        for (final contact in vm.filteredContacts.take(3))
-          InviteContactTile(contact: contact),
       ],
     );
   }

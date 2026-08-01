@@ -20,6 +20,7 @@ import '../../data/models/space_card.dart';
 import '../viewmodels/room_viewmodel.dart';
 import '../widgets/composer.dart';
 import '../widgets/pending_notice.dart';
+import '../widgets/space_ai_pill.dart';
 import '../widgets/empty_room_view.dart';
 import '../widgets/story_card_view.dart';
 import '../widgets/story_footer.dart';
@@ -29,10 +30,15 @@ import '../widgets/story_progress_bar.dart';
 /// A room as a story viewer — one card at a time on a dark ambient stage.
 /// Tap right to advance, left to go back, swipe down to leave quietly.
 class RoomScreen extends ConsumerStatefulWidget {
-  const RoomScreen({super.key, required this.kind, required this.refId});
+  const RoomScreen(
+      {super.key, required this.kind, required this.refId, this.initialCardId});
 
   final String kind; // 'person' | 'circle'
   final String refId;
+
+  /// When set, the story opens on this card — how a shelf keepsake is
+  /// reopened "exactly as it first arrived".
+  final String? initialCardId;
 
   @override
   ConsumerState<RoomScreen> createState() => _RoomScreenState();
@@ -41,6 +47,7 @@ class RoomScreen extends ConsumerStatefulWidget {
 class _RoomScreenState extends ConsumerState<RoomScreen> {
   int _index = 0;
   Timer? _ticker;
+  bool _jumpedToInitial = false;
 
   String get roomId => '${widget.kind}:${widget.refId}';
   bool get isCircle => widget.kind == 'circle';
@@ -89,17 +96,32 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       destructive: true,
     );
     if (sure && mounted) {
-      ref.read(roomViewModelProvider(roomId).notifier).deleteCard(card);
-      AppToast.show(context, AppStrings.deleted);
+      final result =
+          await ref.read(roomViewModelProvider(roomId).notifier).deleteCard(card);
+      if (!mounted) return;
+      result.when(
+        success: (_) => AppToast.show(context, AppStrings.deleted),
+        // The card reappears when the server refuses — explain why.
+        failure: (message) => AppDialog.alert(context,
+            title: "Couldn't delete it", body: message),
+      );
     }
   }
 
-  void _toggleKeep(SpaceCard card) {
-    ref.read(roomViewModelProvider(roomId).notifier).toggleKeep(card);
-    AppToast.show(
-      context,
-      card.kept ? AppStrings.removedFromShelf : AppStrings.keptOnShelf,
-      icon: card.kept ? null : Icons.bookmark_rounded,
+  Future<void> _toggleKeep(SpaceCard card) async {
+    final wasKept = card.kept;
+    final result =
+        await ref.read(roomViewModelProvider(roomId).notifier).toggleKeep(card);
+    if (!mounted) return;
+    result.when(
+      success: (_) => AppToast.show(
+        context,
+        wasKept ? AppStrings.removedFromShelf : AppStrings.keptOnShelf,
+        icon: wasKept ? null : Icons.bookmark_rounded,
+      ),
+      failure: (message) => AppDialog.alert(context,
+          title: wasKept ? "Couldn't remove it" : "Couldn't keep it",
+          body: message),
     );
   }
 
@@ -175,6 +197,12 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     });
 
     final cards = _sorted(state.cards);
+    // Land on the keepsake the shelf sent us to, once, when cards first load.
+    if (!_jumpedToInitial && widget.initialCardId != null && cards.isNotEmpty) {
+      _jumpedToInitial = true;
+      final at = cards.indexWhere((c) => c.id == widget.initialCardId);
+      if (at >= 0) _index = at;
+    }
     if (_index > cards.length - 1) _index = (cards.length - 1).clamp(0, 999);
     final current = cards.isEmpty ? null : cards[_index];
     final (senderName, paletteId) = _senderOf(current);
@@ -207,6 +235,8 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                     context.push(RouteNames.shelf(widget.kind, widget.refId)),
                 onClose: () => context.pop(),
                 onLeave: _leaveQuietly,
+                onToggleKeep:
+                    current == null ? null : () => _toggleKeep(current),
               ),
               Expanded(
                 child: GestureDetector(
@@ -231,6 +261,20 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                       : StoryCardView(card: current),
                 ),
               ),
+              // The invitation to answer with SpaceAI — pinned above the
+              // footer, only when a card is showing and the room is open.
+              if (current != null &&
+                  _pendingRequest() == null &&
+                  (ref.watch(spaceAiAvailableProvider).valueOrNull ?? false))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 0, 20, 10),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: SpaceAiPill(
+                      onTap: () => Composer.openSpaceAi(context, ref, roomId),
+                    ),
+                  ),
+                ),
               if (current != null)
                 StoryFooter(
                   card: current,

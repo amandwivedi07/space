@@ -9,5 +9,9 @@ class RouteNames {
 
   static String personRoom(String id) => '/room/person/$id';
   static String circleRoom(String id) => '/room/circle/$id';
+
+  /// A room opened from the shelf, landing on one specific kept card.
+  static String roomAtCard(String kind, String id, String cardId) =>
+      '/room/$kind/$id?card=$cardId';
   static String shelf(String kind, String id) => '/shelf/$kind/$id';
 }

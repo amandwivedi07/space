@@ -167,8 +167,9 @@ class ApiClient {
     );
   }
 
-  Future<dynamic> get(String path, {Map<String, dynamic>? query}) =>
-      request('GET', path, query: query);
+  Future<dynamic> get(String path,
+          {Map<String, dynamic>? query, Duration? receiveTimeout}) =>
+      request('GET', path, query: query, receiveTimeout: receiveTimeout);
   Future<dynamic> post(String path, {Object? body, Duration? receiveTimeout}) =>
       request('POST', path, body: body, receiveTimeout: receiveTimeout);
   Future<dynamic> patch(String path, {Object? body}) =>

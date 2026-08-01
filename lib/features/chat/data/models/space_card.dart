@@ -20,6 +20,7 @@ class SpaceCard {
     this.seenAt,
     this.consumedAt,
     this.kept = false,
+    this.keptAt,
     this.aiGenerated = false,
     this.aiSeed = 0,
     this.reactions = const [],
@@ -38,6 +39,9 @@ class SpaceCard {
   final DateTime? seenAt;
   final DateTime? consumedAt; // view-once reveal moment
   final bool kept;
+
+  /// When it was kept — the shelf shows "KEPT · 1 AUG" from this.
+  final DateTime? keptAt;
   final bool aiGenerated;
   final int aiSeed; // deterministic gradient for mock AI media
   final List<String> reactions; // emoji, arrival order
@@ -85,6 +89,7 @@ class SpaceCard {
         seenAt: seenAt ?? this.seenAt,
         consumedAt: consumedAt ?? this.consumedAt,
         kept: kept ?? this.kept,
+        keptAt: keptAt,
         aiGenerated: aiGenerated,
         aiSeed: aiSeed,
         reactions: reactions,
@@ -105,6 +110,7 @@ class SpaceCard {
         seenAt: DateTime.tryParse(json['seenAt'] as String? ?? ''),
         consumedAt: DateTime.tryParse(json['consumedAt'] as String? ?? ''),
         kept: json['kept'] as bool? ?? false,
+        keptAt: DateTime.tryParse(json['keptAt'] as String? ?? ''),
         aiGenerated: json['aiGenerated'] as bool? ?? false,
         aiSeed: (json['aiSeed'] as num?)?.toInt() ?? 0,
         reactions: List<String>.from(json['reactions'] as List? ?? const []),
@@ -124,6 +130,7 @@ class SpaceCard {
         'seenAt': seenAt?.toIso8601String(),
         'consumedAt': consumedAt?.toIso8601String(),
         'kept': kept,
+        'keptAt': keptAt?.toIso8601String(),
         'aiGenerated': aiGenerated,
         'aiSeed': aiSeed,
         'reactions': reactions,
