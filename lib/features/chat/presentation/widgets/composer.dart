@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/extensions/context_x.dart';
 import '../../../../core/network/api_client.dart';
@@ -168,7 +167,7 @@ class _ComposerState extends ConsumerState<Composer> {
             ),
             const SizedBox(height: 6),
             Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 IconButton(
                   onPressed: _attach,
@@ -186,12 +185,18 @@ class _ComposerState extends ConsumerState<Composer> {
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    minLines: 1,
-                    maxLines: AppConstants.maxComposerLines,
+                    // One line, always. A field that grows as you type pushed
+                    // the whole rail around and read as a form, not a rail.
+                    maxLines: 1,
                     textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.send,
                     onChanged: (_) => setState(() {}),
                     onSubmitted: (_) => _sendText(),
-                    decoration: InputDecoration(hintText: widget.hint),
+                    decoration: InputDecoration(
+                      hintText: widget.hint,
+                      hintMaxLines: 1,
+                      isDense: true,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),

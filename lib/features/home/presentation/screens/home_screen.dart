@@ -6,6 +6,8 @@ import '../../../../core/constants/app_strings.dart';
 import '../../../../core/extensions/context_x.dart';
 import '../../../../core/routes/route_names.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/constants/palettes.dart';
+import '../../../../core/widgets/app_avatar.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../authentication/presentation/viewmodels/auth_viewmodel.dart';
@@ -74,6 +76,7 @@ class HomeScreen extends ConsumerWidget {
         (s) => (s.user?.name ?? '').trim().split(RegExp(r'\s+')).first,
       ),
     );
+    final me = ref.watch(authViewModelProvider).user;
 
     return Scaffold(
       body: SafeArea(
@@ -83,6 +86,10 @@ class HomeScreen extends ConsumerWidget {
               children: [
                 _Header(
                   userName: userName,
+                  fullName: me?.name ?? '',
+                  avatarUrl: me?.avatarUrl ?? '',
+                  photoPath: me?.photoPath ?? '',
+                  paletteId: me?.paletteId ?? 'ember',
                   onSearch: () => vm.toggleSearch(true),
                   onProfile: () => context.push(RouteNames.profile),
                 ),
@@ -143,11 +150,19 @@ class HomeScreen extends ConsumerWidget {
 class _Header extends StatelessWidget {
   const _Header({
     required this.userName,
+    required this.fullName,
+    required this.avatarUrl,
+    required this.photoPath,
+    required this.paletteId,
     required this.onSearch,
     required this.onProfile,
   });
 
   final String userName;
+  final String fullName;
+  final String avatarUrl;
+  final String photoPath;
+  final String paletteId;
   final VoidCallback onSearch;
   final VoidCallback onProfile;
 
@@ -179,10 +194,21 @@ class _Header extends StatelessWidget {
             onPressed: onSearch,
             icon: const Icon(Icons.search_rounded),
           ),
-          IconButton(
-            tooltip: AppStrings.yourProfile,
-            onPressed: onProfile,
-            icon: const Icon(Icons.face_outlined),
+          // Your own face, not a generic mask. AppAvatar falls back to the
+          // initial when the identity provider gave us no picture — Apple
+          // never does.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: GestureDetector(
+              onTap: onProfile,
+              child: AppAvatar(
+                name: fullName.isEmpty ? userName : fullName,
+                palette: SpacePalette.byId(paletteId),
+                avatarUrl: avatarUrl,
+                photoPath: photoPath,
+                size: 34,
+              ),
+            ),
           ),
         ],
       ),

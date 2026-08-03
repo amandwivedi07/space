@@ -125,19 +125,6 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     );
   }
 
-  Future<void> _leaveQuietly() async {
-    final sure = await AppDialog.confirm(
-      context,
-      title: AppStrings.leaveQuietly,
-      body: 'This space will slip off your cluster. No one is notified.',
-      confirmLabel: 'Leave',
-      destructive: true,
-    );
-    if (!sure || !mounted) return;
-    await ref.read(spacesRepositoryProvider).leave(widget.refId);
-    if (mounted) context.pop();
-  }
-
   String _roomTitle() {
     final repo = ref.read(spacesRepositoryProvider);
     return isCircle
@@ -234,9 +221,6 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                 onShelf: () =>
                     context.push(RouteNames.shelf(widget.kind, widget.refId)),
                 onClose: () => context.pop(),
-                onLeave: _leaveQuietly,
-                onToggleKeep:
-                    current == null ? null : () => _toggleKeep(current),
               ),
               Expanded(
                 child: GestureDetector(
@@ -291,7 +275,9 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
               else
                 Composer(
                   roomId: roomId,
-                  hint: 'Ask SpaceAI or type to ${_roomTitle()}…',
+                  // First name only: the field is one line now, and a full
+                  // name pushed the hint into an ellipsis every time.
+                  hint: 'Type to ${_roomTitle().split(RegExp(r"\s+")).first}…',
                 ),
             ],
           ),
