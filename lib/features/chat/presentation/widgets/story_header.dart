@@ -8,9 +8,10 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/app_avatar.dart';
 import '../../data/models/space_card.dart';
 
-/// Story header: who this card is from, when, and how long it has left, with
-/// the shared shelf and a single way out. Keeping a card lives on the labelled
-/// KEEP THIS pill in the footer, not on a second bookmark up here.
+/// Story header: who this card is from, when, and how long it has left, plus
+/// delete, the shared shelf and a single way out. Keeping lives on the
+/// labelled KEEP THIS pill down in the rail, where the wording can say what
+/// tapping it will do.
 class StoryHeader extends StatelessWidget {
   const StoryHeader({
     super.key,
@@ -19,6 +20,7 @@ class StoryHeader extends StatelessWidget {
     this.card,
     required this.onShelf,
     required this.onClose,
+    this.onDelete,
   });
 
   final String senderName;
@@ -26,6 +28,10 @@ class StoryHeader extends StatelessWidget {
   final SpaceCard? card;
   final VoidCallback onShelf;
   final VoidCallback onClose;
+
+  /// Deleting is a considered act, so it lives up here with the other
+  /// room-level controls — null on cards that are not mine to take back.
+  final VoidCallback? onDelete;
 
   String get _meta {
     final c = card;
@@ -65,8 +71,15 @@ class StoryHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (onDelete != null)
+            IconButton(
+              tooltip: 'Delete',
+              onPressed: onDelete,
+              icon: Icon(Icons.delete_outline_rounded,
+                  size: 20, color: context.muted),
+            ),
           IconButton(
-            tooltip: 'Shared shelf',
+            tooltip: 'Your shelf',
             onPressed: onShelf,
             icon: Icon(Icons.collections_bookmark_outlined,
                 size: 20, color: context.ink),

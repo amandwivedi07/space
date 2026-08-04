@@ -3,72 +3,88 @@ import 'package:flutter/material.dart';
 import '../../../../core/extensions/context_x.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/space_card.dart';
+import 'space_ai_pill.dart';
 
-/// Bottom story rail: emoji reactions, KEEP THIS / DELETE pills, "1 / 3".
+/// The story rail: reactions and SpaceAI share the top line — both are things
+/// you do *to* the card on show — with the keep pill on its own line beneath,
+/// where its wording has room to say what tapping it will do. Deleting stays
+/// up in the header; it is the one action here you cannot undo.
 class StoryFooter extends StatelessWidget {
   const StoryFooter({
     super.key,
     required this.card,
-    required this.index,
-    required this.total,
     required this.onReact,
     required this.onToggleKeep,
-    required this.onDelete,
+    this.onOpenAi,
   });
 
   static const _reactions = ['❤️', '😂', '😮', '😢', '🔥', '👏'];
+  static const _ember = Color(0xFFB05C3F);
 
   final SpaceCard card;
-  final int index;
-  final int total;
   final ValueChanged<String> onReact;
   final VoidCallback onToggleKeep;
-  final VoidCallback onDelete;
+
+  /// Null when SpaceAI is unavailable — the pill simply is not there.
+  final VoidCallback? onOpenAi;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: context.ink.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final emoji in _reactions)
-                  GestureDetector(
-                    onTap: () => onReact(emoji),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 7),
-                      child: Text(emoji, style: const TextStyle(fontSize: 20)),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
           Row(
             children: [
-              _Pill(
-                label: card.kept ? '✓ KEPT' : '+ KEEP THIS',
-                emphasized: card.kept,
-                onTap: onToggleKeep,
+              // Expanded so the pill is pushed to the far edge; the strip
+              // scales down a hair on narrow screens rather than wrapping.
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: context.ink.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final emoji in _reactions)
+                          GestureDetector(
+                            onTap: () => onReact(emoji),
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 5),
+                              child: Text(emoji,
+                                  style: const TextStyle(fontSize: 18)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              if (card.isMine) ...[
+              if (onOpenAi != null) ...[
                 const SizedBox(width: 8),
-                _Pill(label: 'DELETE', onTap: onDelete),
+                SpaceAiPill(onTap: onOpenAi!),
               ],
-              const Spacer(),
-              Text('${index + 1} / $total',
-                  style: AppTypography.mono(context.muted, 10)),
             ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: card.kept
+                ? [
+                    const _Pill(label: '✦ YOU KEPT THIS', filled: true),
+                    const SizedBox(width: 8),
+                    _Pill(label: 'REMOVE', onTap: onToggleKeep),
+                  ]
+                : [_Pill(label: '✦ KEEP THIS', onTap: onToggleKeep)],
           ),
         ],
       ),
@@ -76,32 +92,39 @@ class StoryFooter extends StatelessWidget {
   }
 }
 
+/// A rail pill. With no [onTap] it is a standing statement rather than a
+/// button — "YOU KEPT THIS" reports, "REMOVE" beside it acts.
 class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.onTap, this.emphasized = false});
+  const _Pill({required this.label, this.onTap, this.filled = false});
 
   final String label;
-  final VoidCallback onTap;
-  final bool emphasized;
+  final VoidCallback? onTap;
+  final bool filled;
 
   @override
   Widget build(BuildContext context) {
+    final body = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      child: Text(
+        label,
+        style: AppTypography.mono(
+            filled ? Colors.white : context.ink, 9),
+      ),
+    );
+    final colour = filled
+        ? StoryFooter._ember
+        : context.ink.withValues(alpha: 0.07);
+
+    if (onTap == null) {
+      return Material(color: colour, shape: const StadiumBorder(), child: body);
+    }
     return Material(
-      color: emphasized ? context.ink : context.ink.withValues(alpha: 0.07),
+      color: colour,
       shape: const StadiumBorder(),
       child: InkWell(
         onTap: onTap,
         customBorder: const StadiumBorder(),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          child: Text(
-            label,
-            style: AppTypography.mono(
-                emphasized
-                    ? context.theme.scaffoldBackgroundColor
-                    : context.ink,
-                9),
-          ),
-        ),
+        child: body,
       ),
     );
   }

@@ -20,7 +20,6 @@ import '../../data/models/space_card.dart';
 import '../viewmodels/room_viewmodel.dart';
 import '../widgets/composer.dart';
 import '../widgets/pending_notice.dart';
-import '../widgets/space_ai_pill.dart';
 import '../widgets/empty_room_view.dart';
 import '../widgets/story_card_view.dart';
 import '../widgets/story_footer.dart';
@@ -221,6 +220,9 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                 onShelf: () =>
                     context.push(RouteNames.shelf(widget.kind, widget.refId)),
                 onClose: () => context.pop(),
+                onDelete: current != null && current.isMine
+                    ? () => _delete(current)
+                    : null,
               ),
               Expanded(
                 child: GestureDetector(
@@ -245,30 +247,29 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                       : StoryCardView(card: current),
                 ),
               ),
-              // The invitation to answer with SpaceAI — pinned above the
-              // footer, only when a card is showing and the room is open.
-              if (current != null &&
-                  _pendingRequest() == null &&
-                  (ref.watch(spaceAiAvailableProvider).valueOrNull ?? false))
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(0, 0, 20, 10),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: SpaceAiPill(
-                      onTap: () => Composer.openSpaceAi(context, ref, roomId),
-                    ),
-                  ),
-                ),
               if (current != null)
                 StoryFooter(
                   card: current,
-                  index: _index,
-                  total: cards.length,
                   onReact: (emoji) => ref
                       .read(roomViewModelProvider(roomId).notifier)
                       .react(current, emoji),
                   onToggleKeep: () => _toggleKeep(current),
-                  onDelete: () => _delete(current),
+                  onOpenAi: _pendingRequest() == null &&
+                          (ref.watch(spaceAiAvailableProvider).valueOrNull ??
+                              false)
+                      // Answering their words; my own card or a picture has
+                      // nothing to quote, so the sheet opens blank instead.
+                      ? () => Composer.openSpaceAi(
+                            context,
+                            ref,
+                            roomId,
+                            replyTo:
+                                !current.isMine && current.body.trim().isNotEmpty
+                                    ? current.body
+                                    : null,
+                            replyToName: senderName,
+                          )
+                      : null,
                 ),
               if (_pendingRequest() case final request?)
                 PendingNotice(request: request, name: _roomTitle())

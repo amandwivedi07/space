@@ -146,7 +146,9 @@ class ShelfScreen extends ConsumerWidget {
                           style: AppTypography.mono(context.muted, 10)),
                     ),
                     const SizedBox(height: 26),
-                    Text('SHARED SHELF · WITH ${title.toUpperCase()}',
+                    // Not "shared": a keep is private to whoever made it, so
+                    // this shelf only ever holds your own.
+                    Text('YOUR SHELF · WITH ${title.toUpperCase()}',
                         style:
                             AppTypography.mono(const Color(0xFFB05C3F), 9)),
                     const SizedBox(height: 12),
@@ -154,8 +156,9 @@ class ShelfScreen extends ConsumerWidget {
                         style: AppTypography.display(context.ink, 34)),
                     const SizedBox(height: 12),
                     Text(
-                      'Everything else has quietly disappeared. Tap any '
-                      'keepsake to open it exactly as it first arrived.',
+                      'Everything else has quietly disappeared. Only you can '
+                      'see what you kept. Tap any keepsake to open it exactly '
+                      'as it first arrived.',
                       style: context.text.bodySmall?.copyWith(height: 1.5),
                     ),
                     const SizedBox(height: 22),

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_typography.dart';
 
-/// The "RESPOND WITH ✦ SPACEAI" pill: violet-to-blue like the brand mark, with
-/// a slow sheen sweeping across so it reads as alive without shouting.
+/// The "✦ SPACEAI" pill: violet-to-blue like the brand mark, with a slow
+/// sheen sweeping across so it reads as alive without shouting. It sits in
+/// the story rail, so it carries no caption — one row, no stacking.
 class SpaceAiPill extends StatefulWidget {
   const SpaceAiPill({super.key, required this.onTap});
 
@@ -28,67 +29,56 @@ class _SpaceAiPillState extends State<SpaceAiPill>
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('RESPOND WITH',
-            style: AppTypography.mono(
-                Colors.white.withValues(alpha: 0.55), 8)),
-        const SizedBox(height: 6),
-        GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedBuilder(
-            animation: _sheen,
-            builder: (context, child) {
-              // The highlight travels from off-screen left to off-screen
-              // right; most of the cycle it is out of view, so the pill
-              // glints rather than strobes.
-              final t = _sheen.value * 4 - 1.5;
-              return Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFC79BEF), Color(0xFF6FA8F5)],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF8F7BF3).withValues(alpha: 0.45),
-                      blurRadius: 26,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedBuilder(
+        animation: _sheen,
+        builder: (context, child) {
+          // The highlight travels from off-screen left to off-screen
+          // right; most of the cycle it is out of view, so the pill
+          // glints rather than strobes.
+          final t = _sheen.value * 4 - 1.5;
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              gradient: const LinearGradient(
+                colors: [Color(0xFFC79BEF), Color(0xFF6FA8F5)],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF8F7BF3).withValues(alpha: 0.45),
+                  blurRadius: 26,
+                  offset: const Offset(0, 6),
                 ),
-                foregroundDecoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  gradient: LinearGradient(
-                    begin: Alignment(t - 0.6, -0.4),
-                    end: Alignment(t + 0.6, 0.4),
-                    colors: [
-                      Colors.white.withValues(alpha: 0),
-                      Colors.white.withValues(alpha: 0.35),
-                      Colors.white.withValues(alpha: 0),
-                    ],
-                  ),
-                ),
-                child: child,
-              );
-            },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.auto_awesome, size: 15, color: Colors.white),
-                const SizedBox(width: 8),
-                Text('SPACEAI',
-                    style: AppTypography.mono(Colors.white, 12)
-                        .copyWith(fontWeight: FontWeight.w600)),
               ],
             ),
-          ),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              gradient: LinearGradient(
+                begin: Alignment(t - 0.6, -0.4),
+                end: Alignment(t + 0.6, 0.4),
+                colors: [
+                  Colors.white.withValues(alpha: 0),
+                  Colors.white.withValues(alpha: 0.35),
+                  Colors.white.withValues(alpha: 0),
+                ],
+              ),
+            ),
+            child: child,
+          );
+        },
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.auto_awesome, size: 14, color: Colors.white),
+            const SizedBox(width: 7),
+            Text('SPACEAI',
+                style: AppTypography.mono(Colors.white, 11)
+                    .copyWith(fontWeight: FontWeight.w600)),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

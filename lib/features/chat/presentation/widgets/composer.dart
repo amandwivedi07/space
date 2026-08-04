@@ -7,8 +7,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/services/media_picker_service.dart';
 import '../../../../core/widgets/app_toast.dart';
-import '../../../space_ai/presentation/widgets/space_ai_sheet.dart';
-import '../../../space_ai/data/repositories/space_ai_repository.dart';
+import '../../../space_ai/presentation/screens/space_ai_screen.dart';
 import '../viewmodels/room_viewmodel.dart';
 import 'attach_sheet.dart';
 import 'fade_timer_sheet.dart';
@@ -25,8 +24,10 @@ class Composer extends ConsumerStatefulWidget {
   /// Opens SpaceAI and handles the outcome. Drafts SEND DIRECTLY (like the
   /// web app) — the card carries the "Sent with SpaceAI." mark.
   static Future<void> openSpaceAi(
-      BuildContext context, WidgetRef ref, String roomId) async {
-    final outcome = await SpaceAiSheet.show(context);
+      BuildContext context, WidgetRef ref, String roomId,
+      {String? replyTo, String? replyToName}) async {
+    final outcome = await SpaceAiScreen.open(context,
+        replyTo: replyTo, replyToName: replyToName);
     if (outcome == null || !context.mounted) return;
     final vm = ref.read(roomViewModelProvider(roomId).notifier);
     switch (outcome) {
@@ -125,8 +126,6 @@ class _ComposerState extends ConsumerState<Composer> {
     }
   }
 
-  Future<void> _openAi() => Composer.openSpaceAi(context, ref, widget.roomId);
-
   void _sendWithToast(VoidCallback send, String message) {
     send();
     if (mounted) AppToast.show(context, message);
@@ -175,13 +174,6 @@ class _ComposerState extends ConsumerState<Composer> {
                   icon: Icon(Icons.add_circle_outline_rounded,
                       color: context.ink),
                 ),
-                // Hidden entirely when the server has no model credentials.
-                if (ref.watch(spaceAiAvailableProvider).valueOrNull ?? false)
-                  IconButton(
-                    onPressed: _openAi,
-                    tooltip: AppStrings.spaceAi,
-                    icon: Icon(Icons.auto_awesome_outlined, color: context.ink),
-                  ),
                 Expanded(
                   child: TextField(
                     controller: _controller,

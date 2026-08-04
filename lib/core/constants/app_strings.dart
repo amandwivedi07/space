@@ -82,7 +82,7 @@ class AppStrings {
   static const linkSent = 'Link sent.';
 
   // Shelf.
-  static const sharedShelf = 'Shared shelf';
+  static const sharedShelf = 'Your shelf';
   static const shelfEmptyTitle = 'Nothing kept yet';
   static const shelfEmptyBody =
       'When something matters, hold a card and keep it. It will live here.';
@@ -102,6 +102,8 @@ class AppStrings {
   static const spaceAi = 'SpaceAI';
   static const writeWithAi = 'Write with SpaceAI';
   static const whatToSay = 'What do you want to say?';
+  static const whatToSayBack = 'What do you want to say back?';
+  static const steerTheReply = 'Steer the reply — a mood, a detail… (optional)';
   static const draftIntro = "I'll draft a few ways to say it";
   static const anImageOf = 'An image of…';
   static const describeImage = 'Describe an image to create.';

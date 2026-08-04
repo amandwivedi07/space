@@ -9,6 +9,7 @@ class AiResult {
     required this.kind,
     required this.prompt,
     this.drafts = const [],
+    this.note = '',
     this.seed = 0,
     this.url,
   });
@@ -16,6 +17,10 @@ class AiResult {
   final AiKind kind;
   final String prompt;
   final List<String> drafts;
+
+  /// The line SpaceAI says above the phrasings. Often empty — a model that
+  /// skips it costs us a sentence, not the answer.
+  final String note;
   final int seed;
   final String? url;
 
@@ -24,6 +29,7 @@ class AiResult {
             orElse: () => AiKind.draft),
         prompt: json['prompt'] as String? ?? '',
         drafts: List<String>.from(json['drafts'] as List? ?? const []),
+        note: json['note'] as String? ?? '',
         seed: (json['seed'] as num?)?.toInt() ?? 0,
         url: json['url'] as String?,
       );
@@ -32,6 +38,7 @@ class AiResult {
         'kind': kind.name,
         'prompt': prompt,
         'drafts': drafts,
+        'note': note,
         'seed': seed,
         'url': url,
       };

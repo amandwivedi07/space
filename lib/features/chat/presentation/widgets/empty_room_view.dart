@@ -90,7 +90,7 @@ class EmptyRoomView extends StatelessWidget {
             if (onOpenAi case final open?) _SpaceAiTile(onTap: open),
             const SizedBox(height: 36),
             Text(
-              'CARDS FADE ${fade.label.toUpperCase()} AFTER SEEN · KEEP TO REMEMBER',
+              'CARDS ${fade.roomClause} · KEEP TO REMEMBER',
               textAlign: TextAlign.center,
               style: AppTypography.mono(
                   context.muted.withValues(alpha: 0.8), 8.5),

@@ -49,8 +49,12 @@ class ApiSpaceAiRepository implements SpaceAiRepository {
         return const Failure(
             'SpaceAI came back empty. Try saying it differently.');
       }
-      return Success(
-          AiResult(kind: AiKind.draft, prompt: prompt, drafts: drafts));
+      return Success(AiResult(
+        kind: AiKind.draft,
+        prompt: prompt,
+        drafts: drafts,
+        note: data['note'] as String? ?? '',
+      ));
     } on ApiException catch (e) {
       return Failure(e.message);
     }

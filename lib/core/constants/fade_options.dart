@@ -25,6 +25,16 @@ enum FadeOption {
         _ => 'Fades $label after seen',
       };
 
+  /// Completes the sentence "CARDS …" in an empty room. It lives here beside
+  /// [sentenceLabel] because the two special cases already carry "after seen"
+  /// (and "once") in their own labels — pasting a suffix on at the call site
+  /// printed "CARDS FADE AFTER SEEN AFTER SEEN".
+  String get roomClause => switch (this) {
+        FadeOption.afterSeen => 'FADE AFTER SEEN',
+        FadeOption.viewOnce => 'ARE SEEN ONCE, THEN GONE',
+        _ => 'FADE ${label.toUpperCase()} AFTER SEEN',
+      };
+
   static FadeOption fromId(String? id) => FadeOption.values.firstWhere(
         (o) => o.name == id,
         orElse: () => FadeOption.m1,
