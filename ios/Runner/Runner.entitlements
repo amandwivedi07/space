@@ -8,5 +8,12 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- Push. Without this the device gets no APNs token, getAPNSToken()
+	     returns null, and FirebaseMessaging.getToken() throws — which is why
+	     no iOS device had ever registered. "development" is what a debug
+	     build needs; Xcode rewrites it to "production" when archiving for
+	     TestFlight and the App Store. -->
+	<key>aps-environment</key>
+	<string>development</string>
 </dict>
 </plist>

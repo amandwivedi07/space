@@ -25,6 +25,21 @@ enum FadeOption {
         _ => 'Fades $label after seen',
       };
 
+  /// The compact form for the composer chip, where there is room for a
+  /// glance and nothing more.
+  String get chipLabel => switch (this) {
+        FadeOption.afterSeen => 'SEEN',
+        FadeOption.viewOnce => 'ONCE',
+        FadeOption.s10 => '10S',
+        FadeOption.s30 => '30S',
+        FadeOption.m1 => '1M',
+        FadeOption.m5 => '5M',
+        FadeOption.m15 => '15M',
+        FadeOption.m30 => '30M',
+        FadeOption.m45 => '45M',
+        FadeOption.m60 => '60M',
+      };
+
   /// Completes the sentence "CARDS …" in an empty room. It lives here beside
   /// [sentenceLabel] because the two special cases already carry "after seen"
   /// (and "once") in their own labels — pasting a suffix on at the call site

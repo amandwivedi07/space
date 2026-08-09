@@ -20,6 +20,7 @@ import '../../data/models/space_card.dart';
 import '../viewmodels/room_viewmodel.dart';
 import '../widgets/composer.dart';
 import '../widgets/pending_notice.dart';
+import '../widgets/room_menu_sheet.dart';
 import '../widgets/empty_room_view.dart';
 import '../widgets/story_card_view.dart';
 import '../widgets/story_footer.dart';
@@ -27,7 +28,7 @@ import '../widgets/story_header.dart';
 import '../widgets/story_progress_bar.dart';
 
 /// A room as a story viewer — one card at a time on a dark ambient stage.
-/// Tap right to advance, left to go back, swipe down to leave quietly.
+/// Tap right to advance, left to go back, swipe down to close.
 class RoomScreen extends ConsumerStatefulWidget {
   const RoomScreen(
       {super.key, required this.kind, required this.refId, this.initialCardId});
@@ -107,6 +108,44 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     }
   }
 
+  Future<void> _openMenu() async {
+    final choice = await RoomMenuSheet.show(
+      context,
+      isCircle: isCircle,
+      title: _roomTitle(),
+    );
+    if (choice == RoomMenuChoice.leave && mounted) await _leaveSpace();
+  }
+
+  /// Leaving is the one action here with no undo — the space disappears from
+  /// the cluster and the cards go with it — so it asks first, and says plainly
+  /// when the server refuses rather than pretending it worked.
+  Future<void> _leaveSpace() async {
+    final sure = await AppDialog.confirm(
+      context,
+      title: isCircle ? 'Leave this circle?' : 'Leave this space?',
+      body: isCircle
+          ? 'You will stop seeing ${_roomTitle()}, and they will stop seeing you here.'
+          : 'This space closes for you. Nothing is announced.',
+      confirmLabel: 'Leave',
+      destructive: true,
+    );
+    if (!sure || !mounted) return;
+
+    final result =
+        await ref.read(spacesRepositoryProvider).leave(widget.refId);
+    if (!mounted) return;
+    result.when(
+      success: (_) {
+        // Pop first: the room is about to have no space behind it.
+        context.pop();
+        AppToast.show(context, 'You left quietly');
+      },
+      failure: (message) => AppDialog.alert(context,
+          title: "Couldn't leave", body: message),
+    );
+  }
+
   Future<void> _toggleKeep(SpaceCard card) async {
     final wasKept = card.kept;
     final result =
@@ -138,18 +177,20 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
         : repo.personById(widget.refId)?.presence ?? Presence.away;
   }
 
-  (String, String) _senderOf(SpaceCard? card) {
+  (String, String, String?, String?) _senderOf(SpaceCard? card) {
     final repo = ref.read(spacesRepositoryProvider);
     if (card == null || !card.isMine) {
       final person = repo.personById(
         card?.senderId ?? (isCircle ? '' : widget.refId),
       );
-      if (person != null) return (person.name, person.paletteId);
+      if (person != null) {
+        return (person.name, person.paletteId, person.avatarUrl, null);
+      }
       final circle = isCircle ? repo.circleById(widget.refId) : null;
-      return (circle?.name ?? 'Someone', 'iris');
+      return (circle?.name ?? 'Someone', 'iris', null, null);
     }
     final me = ref.read(authViewModelProvider).user;
-    return ('You', me?.paletteId ?? 'ember');
+    return ('You', me?.paletteId ?? 'ember', me?.avatarUrl, me?.photoPath);
   }
 
   /// A direct space that is still an invitation: nothing may be sent yet.
@@ -182,7 +223,13 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       }
     });
 
-    final cards = _sorted(state.cards);
+    // The viewmodel only re-filters expired cards when a fresh server event
+    // arrives; between events nothing tells it the countdown ran out. The
+    // _ticker rebuilds this widget every second regardless, so re-checking
+    // .expired here is what actually makes a card disappear the moment its
+    // own "0S LEFT" hits zero, instead of waiting for the next unrelated
+    // update to catch up.
+    final cards = _sorted(state.cards.where((c) => !c.expired).toList());
     // Land on the keepsake the shelf sent us to, once, when cards first load.
     if (!_jumpedToInitial && widget.initialCardId != null && cards.isNotEmpty) {
       _jumpedToInitial = true;
@@ -191,7 +238,8 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     }
     if (_index > cards.length - 1) _index = (cards.length - 1).clamp(0, 999);
     final current = cards.isEmpty ? null : cards[_index];
-    final (senderName, paletteId) = _senderOf(current);
+    final (senderName, paletteId, senderAvatarUrl, senderPhotoPath) =
+        _senderOf(current);
     final palette = SpacePalette.byId(paletteId);
     final background = context.theme.scaffoldBackgroundColor;
     // Ambient stage tinted by the sender's palette, in the active theme.
@@ -216,10 +264,13 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
               StoryHeader(
                 senderName: senderName,
                 paletteId: paletteId,
+                avatarUrl: senderAvatarUrl,
+                photoPath: senderPhotoPath,
                 card: current,
                 onShelf: () =>
                     context.push(RouteNames.shelf(widget.kind, widget.refId)),
                 onClose: () => context.pop(),
+                onMore: _openMenu,
                 onDelete: current != null && current.isMine
                     ? () => _delete(current)
                     : null,
@@ -235,6 +286,8 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                       ? EmptyRoomView(
                           name: senderName == 'You' ? _roomTitle() : senderName,
                           paletteId: paletteId,
+                          avatarUrl: senderAvatarUrl,
+                          photoPath: senderPhotoPath,
                           presence: _roomPresence(),
                           fade: state.fade,
                           onOpenAi:

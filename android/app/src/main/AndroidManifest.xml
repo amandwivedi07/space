@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- Android 13+ will not display a notification from an app that has not
+         declared this and been granted it at runtime. Without it FCM still
+         delivers the message and the app still wakes, so the logs look
+         healthy — nothing is ever drawn on screen. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="Space"
         android:name="${applicationName}"
@@ -27,6 +32,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Where FCM posts a card notification when the payload names no
+             channel, or names one that does not exist yet. Without this the
+             SDK invents a low-importance "Miscellaneous" channel and the
+             banner never appears. MainActivity creates the channel itself. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="space_talk_cards" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

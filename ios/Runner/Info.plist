@@ -85,5 +85,13 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Lets iOS wake the app for the data half of a push (space_id, kind)
+	     while it is backgrounded, so tapping the banner can open straight
+	     into the right room. The banner itself would show without this; the
+	     routing data would not arrive until launch. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

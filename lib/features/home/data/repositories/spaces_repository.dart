@@ -28,8 +28,10 @@ abstract class SpacesRepository {
 
   void markRead(String id, {required bool isCircle});
 
-  /// Leave a space quietly (server removes membership).
-  Future<void> leave(String spaceId);
+  /// Leave a space quietly (server removes membership). Returns a Result
+  /// because leaving is destructive: a silent failure would leave someone
+  /// believing they are out of a group they are still in.
+  Future<Result<void>> leave(String spaceId);
 
   /// Answer an incoming request. Declining removes the space entirely.
   Future<Result<void>> acceptRequest(String spaceId);

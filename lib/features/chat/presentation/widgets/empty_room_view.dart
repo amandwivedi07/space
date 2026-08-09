@@ -18,12 +18,19 @@ class EmptyRoomView extends StatelessWidget {
     required this.presence,
     required this.fade,
     this.onOpenAi,
+    this.avatarUrl,
+    this.photoPath,
   });
 
   final String name;
   final String paletteId;
   final Presence presence;
   final FadeOption fade;
+
+  /// The other person's own picture — falls back to their initial when
+  /// there is none, same as everywhere else AppAvatar is used.
+  final String? avatarUrl;
+  final String? photoPath;
   /// Null when SpaceAI is switched off server-side — the tile is then
   /// hidden rather than shown and failing.
   final VoidCallback? onOpenAi;
@@ -58,7 +65,13 @@ class EmptyRoomView extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: AppAvatar(name: name, palette: palette, size: 128),
+                  child: AppAvatar(
+                    name: name,
+                    palette: palette,
+                    avatarUrl: avatarUrl,
+                    photoPath: photoPath,
+                    size: 128,
+                  ),
                 ),
                 Positioned(
                   right: 6,

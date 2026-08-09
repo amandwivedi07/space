@@ -217,12 +217,14 @@ class ApiSpacesRepository implements SpacesRepository {
   }
 
   @override
-  Future<void> leave(String spaceId) async {
+  Future<Result<void>> leave(String spaceId) async {
     try {
       await _remote.leave(spaceId);
       await refresh();
+      return const Success(null);
     } on ApiException catch (e) {
       Log.w('leave failed: $e');
+      return Failure(e.message);
     }
   }
 

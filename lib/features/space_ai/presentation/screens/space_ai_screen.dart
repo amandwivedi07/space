@@ -29,21 +29,34 @@ class AiMediaReady extends AiOutcome {
 /// SpaceAI, full screen and conversational. Opened from a card it arrives
 /// already answering; opened from the composer it waits for a first line.
 class SpaceAiScreen extends ConsumerStatefulWidget {
-  const SpaceAiScreen({super.key, this.replyTo, this.replyToName});
+  const SpaceAiScreen({
+    super.key,
+    this.replyTo,
+    this.replyToName,
+    this.forBroadcast = false,
+  });
 
   /// The message on screen when SpaceAI was opened, and who said it.
   final String? replyTo;
   final String? replyToName;
 
+  /// Composing for everyone rather than one person: only the wording of the
+  /// promise changes, because the drafting is the same act either way.
+  final bool forBroadcast;
+
   static Future<AiOutcome?> open(
     BuildContext context, {
     String? replyTo,
     String? replyToName,
+    bool forBroadcast = false,
   }) =>
       Navigator.of(context).push<AiOutcome>(MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) =>
-            SpaceAiScreen(replyTo: replyTo, replyToName: replyToName),
+        builder: (_) => SpaceAiScreen(
+          replyTo: replyTo,
+          replyToName: replyToName,
+          forBroadcast: forBroadcast,
+        ),
       ));
 
   @override
@@ -116,7 +129,12 @@ class _SpaceAiScreenState extends ConsumerState<SpaceAiScreen> {
             ),
             Expanded(
               child: state.isEmpty
-                  ? _Blank(mode: state.mode)
+                  ? _Blank(
+                      mode: state.mode,
+                      forBroadcast: widget.forBroadcast,
+                      onPrompt: (text) =>
+                          ref.read(spaceAiViewModelProvider.notifier).ask(text),
+                    )
                   : ListView.builder(
                       controller: _scroll,
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -171,8 +189,8 @@ class _Header extends StatelessWidget {
           Container(
             width: 7,
             height: 7,
-            decoration: const BoxDecoration(
-              color: Color(0xFFB05C3F),
+            decoration: BoxDecoration(
+              color: context.colors.primary,
               shape: BoxShape.circle,
             ),
           ),
@@ -235,24 +253,79 @@ class _Modes extends StatelessWidget {
 }
 
 class _Blank extends StatelessWidget {
-  const _Blank({required this.mode});
+  const _Blank({
+    required this.mode,
+    required this.forBroadcast,
+    required this.onPrompt,
+  });
 
   final AiKind mode;
+  final bool forBroadcast;
+  final ValueChanged<String> onPrompt;
+
+  /// Openers for the blank page. They are the hardest thing to write from
+  /// nothing, so the screen offers a few rather than an empty field.
+  static const _prompts = [
+    'Apologize for being distant',
+    'Wish them goodnight',
+    'Plan a surprise weekend',
+    "Tell them I'm proud of them",
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 44),
-        child: Text(
-          switch (mode) {
-            AiKind.draft => AppStrings.whatToSay,
-            AiKind.image => AppStrings.describeImage,
-          },
-          textAlign: TextAlign.center,
-          style: AppTypography.display(
-              context.ink.withValues(alpha: 0.35), 26),
+    if (mode == AiKind.image) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 44),
+          child: Text(AppStrings.describeImage,
+              textAlign: TextAlign.center,
+              style: AppTypography.display(
+                  context.ink.withValues(alpha: 0.35), 26)),
         ),
+      );
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(28, 60, 28, 24),
+      child: Column(
+        children: [
+          Text('Tell me what\u2019s on your mind.',
+              textAlign: TextAlign.center,
+              style: AppTypography.display(context.ink, 26)),
+          const SizedBox(height: 12),
+          Text(
+            forBroadcast
+                ? "I'LL DRAFT A FEW WAYS TO SAY IT TO EVERYONE."
+                : "I'LL DRAFT A FEW WAYS TO SAY IT.",
+            textAlign: TextAlign.center,
+            style: AppTypography.mono(context.muted, 9),
+          ),
+          const SizedBox(height: 26),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final prompt in _prompts)
+                GestureDetector(
+                  onTap: () => onPrompt(prompt),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: context.ink.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                          color: context.ink.withValues(alpha: 0.08)),
+                    ),
+                    child: Text(prompt,
+                        style: context.text.bodySmall
+                            ?.copyWith(color: context.ink)),
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -351,7 +424,7 @@ class _Bubble extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 13, 16, 13),
             decoration: BoxDecoration(
               color: mine
-                  ? const Color(0xFFB05C3F)
+                  ? context.colors.primary
                   : context.ink.withValues(alpha: 0.055),
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(20),
@@ -495,20 +568,39 @@ class _Input extends StatelessWidget {
             Border(top: BorderSide(color: context.ink.withValues(alpha: 0.06))),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: TextField(
-              controller: controller,
-              maxLines: 1,
-              enabled: !busy,
-              textCapitalization: TextCapitalization.sentences,
-              textInputAction: TextInputAction.send,
-              onChanged: (_) => onChanged(),
-              onSubmitted: (_) => onSend(),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintMaxLines: 1,
-                isDense: true,
+            // A true pill, not the app's default 16px-radius field — this is
+            // a conversation, so it reads as one the way a chat app's does.
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 46),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              decoration: BoxDecoration(
+                color: context.ink.withValues(alpha: 0.055),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              alignment: Alignment.centerLeft,
+              child: TextField(
+                controller: controller,
+                maxLines: 1,
+                enabled: !busy,
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.send,
+                onChanged: (_) => onChanged(),
+                onSubmitted: (_) => onSend(),
+                style: const TextStyle(fontSize: 15),
+                decoration: InputDecoration(
+                  hintText: hint,
+                  hintMaxLines: 1,
+                  isDense: true,
+                  isCollapsed: true,
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                ),
               ),
             ),
           ),
@@ -519,6 +611,7 @@ class _Input extends StatelessWidget {
               backgroundColor: hasText && !busy
                   ? context.ink
                   : context.ink.withValues(alpha: 0.15),
+              minimumSize: const Size(46, 46),
             ),
             icon: Icon(Icons.arrow_forward_rounded,
                 size: 20, color: context.theme.scaffoldBackgroundColor),

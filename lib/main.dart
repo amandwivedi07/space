@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
 
 import 'core/constants/app_strings.dart';
+import 'core/network/realtime_client.dart';
 import 'core/routes/app_router.dart';
 import 'core/routes/route_names.dart';
 import 'core/services/push_service.dart';
@@ -33,16 +34,49 @@ class SpaceApp extends ConsumerStatefulWidget {
   ConsumerState<SpaceApp> createState() => _SpaceAppState();
 }
 
-class _SpaceAppState extends ConsumerState<SpaceApp> {
+class _SpaceAppState extends ConsumerState<SpaceApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Push is optional: without Firebase config this is a logged no-op.
     final push = ref.read(pushServiceProvider);
-    push.onOpenSpace = (spaceId) {
-      ref.read(appRouterProvider).push(RouteNames.personRoom(spaceId));
+    push.onOpenSpace = (spaceId, spaceKind) {
+      ref.read(appRouterProvider).push(spaceKind == 'circle'
+          ? RouteNames.circleRoom(spaceId)
+          : RouteNames.personRoom(spaceId));
     };
     push.initialize();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// The server only pushes to members it believes are offline — a live socket
+  /// means "they are looking at it, do not disturb them". A backgrounded app
+  /// keeps its socket open for as long as the OS allows, so without this the
+  /// user stayed "online" after leaving the app and every notification was
+  /// suppressed. Dropping the socket on pause is what makes background push
+  /// happen at all; resuming reconnects and the missed cards arrive.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final realtime = ref.read(realtimeClientProvider);
+    switch (state) {
+      case AppLifecycleState.resumed:
+        realtime.connect();
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        realtime.disconnect();
+      case AppLifecycleState.inactive:
+        // Transient (notification shade, call banner, app switcher preview).
+        // Dropping the socket here would flap on every glance.
+        break;
+    }
   }
 
   @override

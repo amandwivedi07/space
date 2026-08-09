@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../constants/app_constants.dart';
 import '../constants/presence.dart';
 import '../theme/app_colors.dart';
 
@@ -20,6 +21,7 @@ class PresenceDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!AppConstants.showPresence) return const SizedBox.shrink();
     return Container(
       width: size,
       height: size,

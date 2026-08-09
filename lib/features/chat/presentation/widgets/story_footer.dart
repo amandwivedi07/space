@@ -19,7 +19,6 @@ class StoryFooter extends StatelessWidget {
   });
 
   static const _reactions = ['❤️', '😂', '😮', '😢', '🔥', '👏'];
-  static const _ember = Color(0xFFB05C3F);
 
   final SpaceCard card;
   final ValueChanged<String> onReact;
@@ -112,7 +111,7 @@ class _Pill extends StatelessWidget {
       ),
     );
     final colour = filled
-        ? StoryFooter._ember
+        ? context.colors.primary
         : context.ink.withValues(alpha: 0.07);
 
     if (onTap == null) {

@@ -13,6 +13,10 @@ class AppTheme {
         ink: AppColors.ink,
         muted: AppColors.mutedLight,
         line: AppColors.lineLight,
+        // The dark mood's coral is too pale to sit on near-white; the light
+        // mood takes the deeper step so the accent stays legible either way.
+        accent: AppColors.emberLight,
+        danger: AppColors.dangerLight,
       );
 
   static ThemeData get dark => _build(
@@ -22,6 +26,8 @@ class AppTheme {
         ink: AppColors.inkDark,
         muted: AppColors.mutedDark,
         line: AppColors.lineDark,
+        accent: AppColors.ember,
+        danger: AppColors.danger,
       );
 
   static ThemeData _build({
@@ -31,14 +37,16 @@ class AppTheme {
     required Color ink,
     required Color muted,
     required Color line,
+    required Color accent,
+    required Color danger,
   }) {
     final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.ember,
+      seedColor: accent,
       brightness: brightness,
       surface: surface,
       onSurface: ink,
-      primary: AppColors.ember,
-      error: AppColors.danger,
+      primary: accent,
+      error: danger,
     );
     final text = AppTypography.textTheme(ink, muted);
 
@@ -79,19 +87,19 @@ class AppTheme {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.ember, width: 1.2),
+          borderRadius: BorderRadius.circular(20),
+          borderSide: BorderSide(color: accent, width: 1.2),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: ink,
         contentTextStyle: text.bodyMedium?.copyWith(
-          color: brightness == Brightness.light ? AppColors.paper : AppColors.night,
+          color: background,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),

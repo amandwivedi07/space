@@ -75,7 +75,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF2A211C), AppColors.night],
+            colors: [AppColors.surfaceDark, AppColors.night],
           ),
         ),
         child: SafeArea(

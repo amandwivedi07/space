@@ -20,14 +20,26 @@ class StoryHeader extends StatelessWidget {
     this.card,
     required this.onShelf,
     required this.onClose,
+    required this.onMore,
     this.onDelete,
+    this.avatarUrl,
+    this.photoPath,
   });
 
   final String senderName;
   final String paletteId;
   final SpaceCard? card;
+
+  /// The sender's own picture — the Google photo when they signed in with
+  /// one, or a locally chosen file. Null falls back to the initial, same as
+  /// everywhere else AppAvatar is used.
+  final String? avatarUrl;
+  final String? photoPath;
   final VoidCallback onShelf;
   final VoidCallback onClose;
+
+  /// Opens the space-level menu (leaving, and whatever else accumulates).
+  final VoidCallback onMore;
 
   /// Deleting is a considered act, so it lives up here with the other
   /// room-level controls — null on cards that are not mine to take back.
@@ -54,6 +66,8 @@ class StoryHeader extends StatelessWidget {
           AppAvatar(
             name: senderName,
             palette: SpacePalette.byId(paletteId),
+            avatarUrl: avatarUrl,
+            photoPath: photoPath,
             size: 42,
           ),
           const SizedBox(width: 12),
@@ -78,6 +92,11 @@ class StoryHeader extends StatelessWidget {
               icon: Icon(Icons.delete_outline_rounded,
                   size: 20, color: context.muted),
             ),
+          // IconButton(
+          //   tooltip: 'More',
+          //   onPressed: onMore,
+          //   icon: Icon(Icons.more_horiz_rounded, size: 21, color: context.ink),
+          // ),
           IconButton(
             tooltip: 'Your shelf',
             onPressed: onShelf,
@@ -85,7 +104,7 @@ class StoryHeader extends StatelessWidget {
                 size: 20, color: context.ink),
           ),
           IconButton(
-            tooltip: 'Leave quietly',
+            tooltip: 'Close',
             onPressed: onClose,
             icon: Icon(Icons.close_rounded, size: 21, color: context.ink),
           ),

@@ -150,7 +150,7 @@ class ShelfScreen extends ConsumerWidget {
                     // this shelf only ever holds your own.
                     Text('YOUR SHELF · WITH ${title.toUpperCase()}',
                         style:
-                            AppTypography.mono(const Color(0xFFB05C3F), 9)),
+                            AppTypography.mono(context.colors.primary, 9)),
                     const SizedBox(height: 12),
                     Text('What you chose\nto keep.',
                         style: AppTypography.display(context.ink, 34)),
