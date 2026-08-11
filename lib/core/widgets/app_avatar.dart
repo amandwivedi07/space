@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../constants/palettes.dart';
 import '../extensions/string_x.dart';
 import '../theme/app_typography.dart';
+import '../utils/avatar_url.dart';
 
 /// Gradient avatar with initial, ring and size presets. A picture wins when
 /// there is one: [photoPath] for a locally chosen file, [avatarUrl] for the
@@ -32,7 +33,16 @@ class AppAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final ImageProvider? photo = switch ((photoPath, avatarUrl)) {
       (final p?, _) when p.isNotEmpty => FileImage(File(p)),
-      (_, final u?) when u.isNotEmpty => NetworkImage(u),
+      // Google stores its picture as a 96px thumbnail. That is enough for the
+      // small presets and visibly soft for the large ones, so ask for the size
+      // this avatar is actually drawn at.
+      (_, final u?) when u.isNotEmpty => NetworkImage(
+          sizedAvatarUrl(
+            u,
+            logicalSize: size,
+            devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+          ),
+        ),
       _ => null,
     };
     final hasPhoto = photo != null;

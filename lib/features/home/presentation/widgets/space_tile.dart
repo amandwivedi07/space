@@ -8,6 +8,7 @@ import '../../../../core/constants/presence.dart';
 import '../../../../core/extensions/context_x.dart';
 import '../../../../core/extensions/datetime_x.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/avatar_url.dart';
 
 /// The picture behind a tile: their photo when there is one, otherwise the
 /// palette gradient with their initial. A tile is mostly photograph, so the
@@ -29,17 +30,33 @@ class TileBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = SpacePalette.byId(paletteId);
-    final ImageProvider? photo = switch ((photoPath, avatarUrl)) {
-      (final p?, _) when p.isNotEmpty => FileImage(File(p)),
-      (_, final u?) when u.isNotEmpty => NetworkImage(u),
-      _ => null,
-    };
 
-    if (photo != null) {
-      return Image(image: photo, fit: BoxFit.cover, errorBuilder:
-          (context, _, _) => _Initial(name: name, palette: palette));
-    }
-    return _Initial(name: name, palette: palette);
+    // LayoutBuilder, because the right image size is the one this tile is
+    // about to be drawn at: the featured slot is nearly twice the width of a
+    // grid tile, and asking for one size for both wastes bytes on the small
+    // one or blurs the large one.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final ImageProvider? photo = switch ((photoPath, avatarUrl)) {
+          (final p?, _) when p.isNotEmpty => FileImage(File(p)),
+          (_, final u?) when u.isNotEmpty => NetworkImage(
+              sizedAvatarUrl(
+                u,
+                logicalSize: longestEdge(
+                    constraints.maxWidth, constraints.maxHeight),
+                devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+              ),
+            ),
+          _ => null,
+        };
+
+        if (photo != null) {
+          return Image(image: photo, fit: BoxFit.cover, errorBuilder:
+              (context, _, _) => _Initial(name: name, palette: palette));
+        }
+        return _Initial(name: name, palette: palette);
+      },
+    );
   }
 }
 
