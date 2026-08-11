@@ -65,6 +65,32 @@ jobs:
         id: build_number
         run: echo "value=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_OUTPUT"
 
+      # Without this, a missing secret surfaces twenty minutes later as
+      # "xcodebuild: error: The flag -authenticationKeyID is required when
+      # specifying -authenticationKeyPath" — which reads like a bug in this
+      # workflow rather than an empty secret. Say the real thing, early.
+      - name: Check credentials are configured
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          missing=""
+          [ -n "$KEY_ID" ]      || missing="$missing APP_STORE_CONNECT_KEY_ID"
+          [ -n "$ISSUER_ID" ]   || missing="$missing APP_STORE_CONNECT_ISSUER_ID"
+          [ -n "$PRIVATE_KEY" ] || missing="$missing APP_STORE_CONNECT_PRIVATE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secret(s):$missing — add them under" \
+                 "Settings → Secrets and variables → Actions. See CI.md."
+            exit 1
+          fi
+          case "$PRIVATE_KEY" in
+            *"BEGIN PRIVATE KEY"*) ;;
+            *) echo "::error::APP_STORE_CONNECT_PRIVATE_KEY does not look like a .p8." \
+                    "Paste the file's full contents, BEGIN/END lines included — do not" \
+                    "base64-encode it. See CI.md."; exit 1 ;;
+          esac
+
       # The .p8 is the only credential this pipeline needs. It is written
       # outside the workspace so it can never be picked up by the archive, and
       # removed again in a step that runs even if the build fails.
