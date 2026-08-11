@@ -7,7 +7,7 @@
          healthy — nothing is ever drawn on screen. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="Space"
+        android:label="Spacechat"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
