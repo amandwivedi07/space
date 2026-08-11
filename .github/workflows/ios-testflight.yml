@@ -1,0 +1,145 @@
+name: iOS → TestFlight
+
+# Every push to main ships a build to TestFlight. Also runnable by hand from
+# the Actions tab, which is the way to re-run an upload without an empty commit.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+  workflow_dispatch:
+
+# One build at a time. Two concurrent runs would race for the same build
+# number and the loser would be rejected by App Store Connect.
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    env:
+      # Kept in step with the Flutter version the app is developed against;
+      # bump both together. A floating "stable" would let an upstream release
+      # break a release build with no commit of ours to blame.
+      FLUTTER_VERSION: "3.44.7"
+      BUNDLE_ID: com.talkinspace.talkinspace
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The image default is deliberately used rather than a pinned
+      # /Applications/Xcode_NN.app path: those paths disappear when GitHub
+      # re-images the runner, and a missing path fails the job instantly. The
+      # version is logged so a build that breaks after an image update can be
+      # traced to it.
+      - name: Show toolchain
+        run: xcodebuild -version && xcrun simctl --version
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      # A broken build should fail here, in two cheap minutes, rather than
+      # after twenty minutes of archiving — or worse, in a tester's hands.
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      # App Store Connect refuses a build number it has already seen, so it
+      # cannot come from pubspec.yaml — that would mean hand-editing a file
+      # before every merge. run_number is monotonic per workflow; the offset
+      # clears the highest number uploaded by hand (48) so the sequence never
+      # collides with the manual era. The version NAME still comes from
+      # pubspec.yaml, so marketing versioning stays a deliberate act.
+      - name: Compute build number
+        id: build_number
+        run: echo "value=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_OUTPUT"
+
+      # The .p8 is the only credential this pipeline needs. It is written
+      # outside the workspace so it can never be picked up by the archive, and
+      # removed again in a step that runs even if the build fails.
+      - name: Install App Store Connect API key
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/private_keys
+          printf '%s' "$PRIVATE_KEY" > ~/private_keys/AuthKey_${KEY_ID}.p8
+          chmod 600 ~/private_keys/AuthKey_${KEY_ID}.p8
+
+      # Compiles the Dart and runs pod install. Signing is deliberately skipped
+      # here: xcodebuild signs during archive, where the API key is available.
+      - name: Build Flutter iOS bundle
+        run: |
+          flutter build ios --release --no-codesign \
+            --build-number=${{ steps.build_number.outputs.value }}
+
+      - name: Archive
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          xcodebuild archive \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            -destination "generic/platform=iOS" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${KEY_ID}.p8 \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID"
+
+      - name: Export IPA
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/ipa" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${KEY_ID}.p8 \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID"
+
+      - name: Upload to TestFlight
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          IPA=$(find "$RUNNER_TEMP/ipa" -name "*.ipa" -maxdepth 1 | head -1)
+          if [ -z "$IPA" ]; then echo "::error::no .ipa was exported"; exit 1; fi
+          echo "uploading $(basename "$IPA")"
+          # altool reads the key from one of a few fixed directories rather
+          # than a path argument, which is why it was written to ~/private_keys.
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA" \
+            --apiKey "$KEY_ID" \
+            --apiIssuer "$ISSUER_ID"
+
+      # Keeps the exact artifact that went to Apple, so a build can be
+      # inspected later without reconstructing it from a commit.
+      - name: Keep the IPA
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Runner-${{ steps.build_number.outputs.value }}.ipa
+          path: ${{ runner.temp }}/ipa/*.ipa
+          retention-days: 14
+
+      - name: Remove the API key
+        if: always()
+        run: rm -rf ~/private_keys

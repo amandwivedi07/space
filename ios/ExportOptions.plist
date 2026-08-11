@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Xcode 15 renamed this value from "app-store". Newer Xcode rejects the
+	     old spelling outright, so pin the new one and pin the runner's Xcode. -->
+	<key>method</key>
+	<string>app-store-connect</string>
+
+	<key>teamID</key>
+	<string>B5GMQ7S6F8</string>
+
+	<!-- Automatic, matching CODE_SIGN_STYLE in the Xcode project. CI passes an
+	     App Store Connect API key and -allowProvisioningUpdates, which lets
+	     Xcode mint the distribution certificate and profile itself. That is why
+	     no .p12 or .mobileprovision needs to live in GitHub secrets. -->
+	<key>signingStyle</key>
+	<string>automatic</string>
+
+	<!-- dSYMs go up with the build so crash reports are readable. -->
+	<key>uploadSymbols</key>
+	<true/>
+
+	<!-- Export to disk; the workflow uploads in a separate, retryable step
+	     rather than letting xcodebuild upload directly. -->
+	<key>destination</key>
+	<string>export</string>
+
+	<key>stripSwiftSymbols</key>
+	<true/>
+</dict>
+</plist>
