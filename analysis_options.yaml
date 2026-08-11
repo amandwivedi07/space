@@ -1,1 +1,13 @@
 include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    # Generated output, not ours to analyze. Flutter's Swift Package Manager
+    # support resolves iOS dependencies during `flutter pub get` and drops
+    # their full source — including each plugin's bundled example app — into
+    # build/ios/SourcePackages. Those examples import packages this project
+    # does not depend on, so analysing them reports dozens of errors in code
+    # nobody here wrote. It surfaced as a green local run and a red CI run,
+    # because locally the directory only exists after an iOS build.
+    - build/**
+    - .dart_tool/**
