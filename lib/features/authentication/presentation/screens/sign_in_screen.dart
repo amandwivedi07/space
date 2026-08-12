@@ -146,6 +146,7 @@ class _Brand extends StatelessWidget {
     return Row(
       children: [
         Image.asset(
+
           AppAssets.logoMark,
           width: 36,
           height: 36,

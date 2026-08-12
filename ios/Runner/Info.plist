@@ -43,6 +43,8 @@
 	<string>Space uses the camera for photos and clips you send.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Space uses the microphone to record voice notes you send.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Space transcribes what you say so your voice notes can be read and kept.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Space needs your library to attach photos and videos.</string>
 	<key>UIApplicationSceneManifest</key>

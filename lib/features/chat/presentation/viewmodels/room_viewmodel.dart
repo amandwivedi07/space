@@ -86,8 +86,15 @@ class RoomViewModel extends AutoDisposeFamilyNotifier<RoomState, String> {
   void sendVideo(String path, {String caption = ''}) =>
       _repo.send(_draft(CardType.video, mediaPath: path, body: caption));
 
-  void sendVoice(int seconds, {String? url}) => _repo.send(
-      _draft(CardType.voice, durationSec: seconds, mediaPath: url));
+  void sendVoice(int seconds, {String? url, String transcript = ''}) =>
+      _repo.send(
+        _draft(
+          CardType.voice,
+          durationSec: seconds,
+          mediaPath: url,
+          body: transcript.trim(),
+        ),
+      );
 
   void sendLink(String url, {String comment = ''}) =>
       _repo.send(_draft(CardType.link, linkUrl: url, body: comment));

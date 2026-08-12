@@ -57,6 +57,9 @@ class AppStrings {
   static const nudgeHint =
       'Let them know there are unread messages waiting on Space.';
   static const holdToSpeak = 'Hold to speak';
+  static const tapToSpeak = 'Tap to speak';
+  static const tapToSend = 'Tap to send';
+  static const recording = 'RECORDING';
   static const sendAPhoto = 'Send a photo';
   static const sendAVideo = 'Send a video';
   static const recordInstantVideo = 'Record an instant video';

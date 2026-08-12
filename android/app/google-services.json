@@ -7,6 +7,58 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:809605119374:android:bf9ec43bd9a99c9169f8df",
+        "android_client_info": {
+          "package_name": "ai.rizzr.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "809605119374-gvdtmf28mf97nib52tt080s5d9402mbt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "ai.rizzr.app",
+            "certificate_hash": "a62d0a2317b7625c85baeb765ad683262d4d1c14"
+          }
+        },
+        {
+          "client_id": "809605119374-oaeofogup1daklqplth5h9c1umbos6in.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "ai.rizzr.app",
+            "certificate_hash": "f8a0402fc294a96ee70018a2f64366c5b5485e54"
+          }
+        },
+        {
+          "client_id": "809605119374-664lv2t0bokdatl8oujmpn9ibacraka7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzLDydvTMr6_I_roSaIXC6ic72YHSGknQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "809605119374-664lv2t0bokdatl8oujmpn9ibacraka7.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "809605119374-16u26mbpic69rctqrrp2jgq3phldm6tb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.talkinspace.talkinspace"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:809605119374:android:830728feefe0ab5969f8df",
         "android_client_info": {
           "package_name": "com.talkinspace.talkinspace"
@@ -19,6 +71,14 @@
           "android_info": {
             "package_name": "com.talkinspace.talkinspace",
             "certificate_hash": "5965518f93632aaa76f1087a01fb9ddc0360a2b6"
+          }
+        },
+        {
+          "client_id": "809605119374-ib9941gemsdp9fcjtlihbfugvuhua4cv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.talkinspace.talkinspace",
+            "certificate_hash": "a62d0a2317b7625c85baeb765ad683262d4d1c14"
           }
         },
         {

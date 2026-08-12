@@ -5,6 +5,7 @@ import '../../../../core/constants/app_strings.dart';
 import '../../../../core/extensions/context_x.dart';
 import '../../../../core/helpers/date_formatter.dart';
 import '../../../../core/services/share_launcher_service.dart';
+import '../../../../core/services/voice_player_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/app_network_image.dart';
 import '../../data/models/space_card.dart';
@@ -34,42 +35,129 @@ class CardContent extends ConsumerWidget {
   }
 }
 
-class _VoiceContent extends StatelessWidget {
+class _VoiceContent extends ConsumerWidget {
   const _VoiceContent({required this.card});
 
   final SpaceCard card;
 
+  double _fontSize(String text) {
+    final len = text.trim().length;
+    if (len <= 12) return 42;
+    if (len <= 28) return 36;
+    if (len <= 60) return 30;
+    return 24;
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ink = context.ink;
-    // Deterministic little waveform from the card id.
+    final transcript = card.body.trim();
+    final source = card.mediaPath ?? '';
+    final playback = ref.watch(voicePlayerProvider);
+    final isThis = playback.isLoaded(card.id);
+    final playing = playback.isPlaying(card.id);
+    // Only this card's own progress lights the waveform; another card playing
+    // must not animate this one.
+    final progress = isThis ? playback.progress : 0.0;
+
+    // Deterministic waveform from the card id.
+    final barCount = 32;
     final heights = List.generate(
-        18, (i) => 6.0 + ((card.id.codeUnitAt(i % card.id.length) * (i + 3)) % 16));
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.play_circle_fill_rounded, size: 30, color: ink),
-        const SizedBox(width: 10),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            for (final h in heights)
-              Container(
-                width: 2.4,
-                height: h,
-                margin: const EdgeInsets.symmetric(horizontal: 1.1),
-                decoration: BoxDecoration(
-                  color: ink.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(2),
+      barCount,
+      (i) => 8.0 +
+          ((card.id.codeUnitAt(i % card.id.length) * (i + 3)) % 28).toDouble(),
+    );
+
+    final duration = DateFormatter.clock(Duration(seconds: card.durationSec));
+
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Waveform + pause icon, top (matches the Lovable voice card feel).
+          Row(
+            children: [
+              GestureDetector(
+                onTap: source.isEmpty
+                    ? null
+                    : () => ref
+                        .read(voicePlayerProvider.notifier)
+                        .toggle(card.id, source),
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: context.ink.withValues(alpha: playing ? 0.18 : 0.10),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    size: 26,
+                    color: ink,
+                  ),
                 ),
               ),
+              const SizedBox(width: 18),
+              // Expanded, not a fixed 260: the button and gap already take 78,
+              // so on a narrower phone the row demanded 338 inside a card that
+              // could not give it and overflowed by 88 pixels.
+              Expanded(
+                child: SizedBox(
+                  height: 64,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      for (final (i, h) in heights.indexed)
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: Container(
+                              height: h,
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 1.1),
+                              decoration: BoxDecoration(
+                                // Bars already played are solid, the rest
+                                // stay faint — the waveform doubles as the
+                                // progress bar, so nothing else has to.
+                                color: ink.withValues(
+                                  alpha: (i + 1) / heights.length <= progress
+                                      ? 0.95
+                                      : 0.3,
+                                ),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (transcript.isNotEmpty) ...[
+            const SizedBox(height: 22),
+            Text(
+              transcript,
+              textAlign: TextAlign.center,
+              style: AppTypography.display(ink, _fontSize(transcript)),
+            ),
           ],
-        ),
-        const SizedBox(width: 10),
-        Text(DateFormatter.clock(Duration(seconds: card.durationSec)),
-            style: context.text.bodySmall),
-      ],
+          const SizedBox(height: 18),
+          Text(
+            // Counts up while playing, so the label is the clock rather than
+            // a static length you have to hold in your head.
+            isThis && playback.duration > Duration.zero
+                ? 'VOICE · ${DateFormatter.clock(playback.position)}'
+                    ' / ${DateFormatter.clock(playback.duration)}'
+                : 'VOICE · $duration',
+            style: AppTypography.mono(context.muted, 10),
+          ),
+        ],
+      ),
     );
   }
 }

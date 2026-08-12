@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 
 import '../services/logger_service.dart';
 import 'api_config.dart';
@@ -103,10 +105,23 @@ class ApiClient {
   /// Uploads a local file to POST /media, returning its public URL.
   /// Retries once with a rebuilt body if the access token had expired.
   Future<String> upload(String filePath) async {
-    Future<Response<dynamic>> send() async => _dio.post(
-          '/media',
-          data: FormData.fromMap({'file': await MultipartFile.fromFile(filePath)}),
-        );
+    Future<Response<dynamic>> send() async {
+      final name = filePath.split('/').last;
+      final mime = lookupMimeType(filePath) ??
+          (filePath.toLowerCase().endsWith('.m4a')
+              ? 'audio/mp4'
+              : 'application/octet-stream');
+      return _dio.post(
+        '/media',
+        data: FormData.fromMap({
+          'file': await MultipartFile.fromFile(
+            filePath,
+            filename: name,
+            contentType: MediaType.parse(mime),
+          ),
+        }),
+      );
+    }
     try {
       final res = await send();
       return _urlOf(res);
