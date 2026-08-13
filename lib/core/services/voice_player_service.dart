@@ -12,6 +12,7 @@ class VoicePlayback {
     this.playing = false,
     this.position = Duration.zero,
     this.duration = Duration.zero,
+    this.completed = false,
   });
 
   /// The card currently loaded, or null when nothing is.
@@ -19,6 +20,11 @@ class VoicePlayback {
   final bool playing;
   final Duration position;
   final Duration duration;
+
+  /// This card has been heard all the way through. Kept because the transcript
+  /// is revealed as the note plays: once it has been heard, the words stay put
+  /// rather than vanishing the moment the player rewinds for a replay.
+  final bool completed;
 
   /// 0..1 through the note. Falls back to 0 before the duration is known,
   /// which is the honest answer rather than a bar that jumps once it loads.
@@ -46,6 +52,7 @@ class VoicePlayerNotifier extends StateNotifier<VoicePlayback> {
         playing: state.playing,
         position: p,
         duration: state.duration,
+        completed: state.completed,
       );
     });
     _player.playerStateStream.listen((s) {
@@ -58,6 +65,8 @@ class VoicePlayerNotifier extends StateNotifier<VoicePlayback> {
         state = VoicePlayback(
           cardId: state.cardId,
           duration: state.duration,
+          position: state.duration,
+          completed: true,
         );
         return;
       }
@@ -66,6 +75,7 @@ class VoicePlayerNotifier extends StateNotifier<VoicePlayback> {
         playing: s.playing,
         position: state.position,
         duration: state.duration,
+        completed: state.completed,
       );
     });
   }

@@ -92,7 +92,13 @@ class HomeScreen extends ConsumerWidget {
     final hereNow = people.where((p) => p.presence == Presence.here).length +
         state.circles.where((c) => c.presence == Presence.here).length;
 
-    return Scaffold(
+    return Scaffold(   
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: AppButton(
+                    label: AppStrings.beginASpace,
+                    icon: Icons.add_rounded,
+                    onPressed: () => _beginSpace(context),
+                  ),
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -154,17 +160,7 @@ class HomeScreen extends ConsumerWidget {
                 const SliverToBoxAdapter(child: SizedBox(height: 120)),
               ],
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 28,
-              child: Center(
-                  child: AppButton(
-                label: AppStrings.beginASpace,
-                icon: Icons.add_rounded,
-                onPressed: () => _beginSpace(context),
-              )),
-            ),
+   
             if (state.searching)
               Positioned.fill(
                 child: SearchOverlay(

@@ -40,12 +40,15 @@ class _VoiceContent extends ConsumerWidget {
 
   final SpaceCard card;
 
+  /// Long transcripts stepped down harder than before: a thirty-second note is
+  /// a paragraph, and at 24pt it filled the screen.
   double _fontSize(String text) {
     final len = text.trim().length;
-    if (len <= 12) return 42;
-    if (len <= 28) return 36;
-    if (len <= 60) return 30;
-    return 24;
+    if (len <= 12) return 38;
+    if (len <= 28) return 30;
+    if (len <= 60) return 24;
+    if (len <= 140) return 19;
+    return 16;
   }
 
   @override
@@ -138,14 +141,24 @@ class _VoiceContent extends ConsumerWidget {
               ),
             ],
           ),
-          if (transcript.isNotEmpty) ...[
-            const SizedBox(height: 22),
-            Text(
-              transcript,
-              textAlign: TextAlign.center,
-              style: AppTypography.display(ink, _fontSize(transcript)),
-            ),
-          ],
+          // Grows as words arrive and collapses to nothing before playback, so
+          // an unplayed note is a compact pill rather than a tall empty card.
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: transcript.isEmpty
+                ? const SizedBox(width: double.infinity)
+                : _RevealingTranscript(
+                    transcript: transcript,
+                    // Before the note has been played there is nothing to
+                    // reveal, so the card stays a voice note rather than a
+                    // transcript with a play button attached.
+                    progress: playback.completed && isThis ? 1.0 : progress,
+                    style: AppTypography.display(ink, _fontSize(transcript)),
+                    mutedColor: context.muted,
+                  ),
+          ),
           const SizedBox(height: 18),
           Text(
             // Counts up while playing, so the label is the clock rather than
@@ -157,6 +170,128 @@ class _VoiceContent extends ConsumerWidget {
             style: AppTypography.mono(context.muted, 10),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The transcript, arriving as the note plays rather than sitting there before
+/// a word has been heard.
+///
+/// There are no per-word timings to work from — a card stores the transcript
+/// as plain text — so words are spread evenly across the duration. Over a note
+/// of a few seconds that reads as in time with the voice; it is not true
+/// speech alignment and will drift on a long note with uneven pacing. Getting
+/// that right means capturing timings while recording and storing them
+/// alongside the body, which is a schema change, not a widget change.
+class _RevealingTranscript extends StatelessWidget {
+  const _RevealingTranscript({
+    required this.transcript,
+    required this.progress,
+    required this.style,
+    required this.mutedColor,
+  });
+
+  final String transcript;
+
+  /// 0..1 through the note. 0 means nothing has been heard yet.
+  final double progress;
+  final TextStyle style;
+  final Color mutedColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final words = transcript.split(RegExp(r'\s+'))
+      ..removeWhere((w) => w.isEmpty);
+    if (words.isEmpty) return const SizedBox.shrink();
+
+    // How many words have been "spoken" by now. Rounds up so the first word
+    // appears as soon as playback starts rather than after a whole slot.
+    final spoken = (progress * words.length).ceil().clamp(0, words.length);
+    if (spoken == 0) return const SizedBox.shrink();
+
+    // Only the words heard so far are built. An earlier version laid out the
+    // whole transcript invisibly to stop lines reflowing as words appeared —
+    // but invisible text still takes up space, so a thirty-second note
+    // reserved a tall empty block and overflowed the card by 20 pixels. A
+    // little reflow is the cheaper price.
+    return Padding(
+      padding: const EdgeInsets.only(top: 22),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 10,
+        runSpacing: 2,
+        children: [
+          for (final (i, word) in words.take(spoken).indexed)
+            _Word(
+              key: ValueKey(i),
+              word: word,
+              style: style,
+              // The word currently being said is dimmed, the ones behind it
+              // are solid — the same grammar as the live transcript while
+              // recording, so the two states read as one idea.
+              spoken: i < spoken - 1,
+              mutedColor: mutedColor,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One word, fading and rising into place as it is heard.
+class _Word extends StatefulWidget {
+  const _Word({
+    super.key,
+    required this.word,
+    required this.style,
+    required this.spoken,
+    required this.mutedColor,
+  });
+
+  final String word;
+  final TextStyle style;
+  final bool spoken;
+  final Color mutedColor;
+
+  @override
+  State<_Word> createState() => _WordState();
+}
+
+class _WordState extends State<_Word>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 260),
+  )..forward();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final curved = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    // Driven by the word's own controller, which runs once when it is first
+    // built. Tying it to a rebuild-time flag instead would replay the entrance
+    // on every position tick.
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.3),
+          end: Offset.zero,
+        ).animate(curved),
+        child: AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 220),
+          style: widget.spoken
+              ? widget.style
+              : widget.style.copyWith(color: widget.mutedColor),
+          child: Text(widget.word),
+        ),
       ),
     );
   }
