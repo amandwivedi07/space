@@ -154,7 +154,12 @@ class _VoiceContent extends ConsumerWidget {
                     // Before the note has been played there is nothing to
                     // reveal, so the card stays a voice note rather than a
                     // transcript with a play button attached.
-                    progress: playback.completed && isThis ? 1.0 : progress,
+                    elapsed: playback.completed && isThis
+                        ? const Duration(days: 1)
+                        : (isThis ? playback.position : Duration.zero),
+                    total: isThis && playback.duration > Duration.zero
+                        ? playback.duration
+                        : Duration(seconds: card.durationSec),
                     style: AppTypography.display(ink, _fontSize(transcript)),
                     mutedColor: context.muted,
                   ),
@@ -179,23 +184,40 @@ class _VoiceContent extends ConsumerWidget {
 /// a word has been heard.
 ///
 /// There are no per-word timings to work from — a card stores the transcript
-/// as plain text — so words are spread evenly across the duration. Over a note
-/// of a few seconds that reads as in time with the voice; it is not true
-/// speech alignment and will drift on a long note with uneven pacing. Getting
-/// that right means capturing timings while recording and storing them
-/// alongside the body, which is a schema change, not a widget change.
+/// as plain text — so the pace has to be estimated. Spreading the words evenly
+/// across the recording was the obvious guess and a bad one: people carry on
+/// recording after they stop talking, so real notes came in at 0.25–1.6 words
+/// per second against natural speech of about 2.6. The text fell behind the
+/// voice, and the opening words were audible before they were readable.
+///
+/// So words are paced at natural speaking rate instead, and only sped up if
+/// the note is denser than that. Running slightly ahead of the voice is how
+/// subtitles behave and reads fine; running behind does not.
 class _RevealingTranscript extends StatelessWidget {
   const _RevealingTranscript({
     required this.transcript,
-    required this.progress,
+    required this.elapsed,
+    required this.total,
     required this.style,
     required this.mutedColor,
   });
 
+  /// Words per second of unhurried speech — the floor for the reveal.
+  static const _naturalWordsPerSecond = 2.6;
+
+  /// The recogniser needs a moment to start, so the first word tends to land
+  /// slightly late. A small head start puts it back under the voice.
+  static const _lead = Duration(milliseconds: 250);
+
   final String transcript;
 
-  /// 0..1 through the note. 0 means nothing has been heard yet.
-  final double progress;
+  /// How far into the note playback is. Zero means nothing has been heard.
+  final Duration elapsed;
+
+  /// The note's full length, used only to spot a note denser than natural
+  /// speech, where the even spread is the faster of the two.
+  final Duration total;
+
   final TextStyle style;
   final Color mutedColor;
 
@@ -205,9 +227,18 @@ class _RevealingTranscript extends StatelessWidget {
       ..removeWhere((w) => w.isEmpty);
     if (words.isEmpty) return const SizedBox.shrink();
 
-    // How many words have been "spoken" by now. Rounds up so the first word
-    // appears as soon as playback starts rather than after a whole slot.
-    final spoken = (progress * words.length).ceil().clamp(0, words.length);
+    // At rest the lead must not apply, or a note nobody has played would sit
+    // there showing its first word.
+    if (elapsed <= Duration.zero) return const SizedBox.shrink();
+    final seconds = (elapsed + _lead).inMilliseconds / 1000;
+
+    final totalSeconds = total.inMilliseconds / 1000;
+    final evenRate = totalSeconds > 0 ? words.length / totalSeconds : 0.0;
+    final rate = evenRate > _naturalWordsPerSecond
+        ? evenRate
+        : _naturalWordsPerSecond;
+
+    final spoken = (seconds * rate).ceil().clamp(0, words.length);
     if (spoken == 0) return const SizedBox.shrink();
 
     // Only the words heard so far are built. An earlier version laid out the

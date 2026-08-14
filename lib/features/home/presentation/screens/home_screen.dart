@@ -18,7 +18,7 @@ import '../../data/models/circle_space.dart';
 import '../../data/models/person.dart';
 import '../../data/repositories/spaces_repository.dart';
 import '../viewmodels/home_viewmodel.dart';
-import '../../../broadcast/presentation/broadcast_flow.dart';
+import '../../../broadcast/presentation/screens/broadcast_room_screen.dart';
 import '../widgets/space_tile.dart';
 import '../widgets/new_space_sheet.dart';
 import '../widgets/requests_strip.dart';
@@ -115,7 +115,12 @@ class HomeScreen extends ConsumerWidget {
                     hereNow: hereNow,
                     onSearch: () => vm.toggleSearch(true),
                     onProfile: () => context.push(RouteNames.profile),
-                    onBroadcast: () => startBroadcast(context, ref),
+                    // Straight into the everyone room, which composes the
+                    // same way every other room does: type it, or reach for
+                    // SpaceAI. Forcing SpaceAI first made the one send that
+                    // reaches everybody the only one you could not simply
+                    // write yourself.
+                    onBroadcast: () => BroadcastRoomScreen.open(context),
                   ),
                 ),
                 SliverToBoxAdapter(

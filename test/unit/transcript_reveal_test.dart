@@ -1,58 +1,93 @@
 import 'package:flutter_test/flutter_test.dart';
 
-/// Mirrors the reveal maths in _RevealingTranscript: how many words have been
-/// "spoken" by a given point through the note.
-int spokenCount(String transcript, double progress) {
+/// Mirrors the pacing in _RevealingTranscript: words are revealed at natural
+/// speaking rate, or faster if the note is denser than that.
+const naturalWps = 2.6;
+const lead = Duration(milliseconds: 250);
+
+int spokenAt(String transcript, Duration elapsed, Duration total) {
   final words = transcript.split(RegExp(r'\s+'))..removeWhere((w) => w.isEmpty);
   if (words.isEmpty) return 0;
-  return (progress * words.length).ceil().clamp(0, words.length);
+  // At rest the lead must not apply, or an unplayed note shows its first word.
+  if (elapsed <= Duration.zero) return 0;
+  final seconds = (elapsed + lead).inMilliseconds / 1000;
+  final totalSeconds = total.inMilliseconds / 1000;
+  final even = totalSeconds > 0 ? words.length / totalSeconds : 0.0;
+  final rate = even > naturalWps ? even : naturalWps;
+  return (seconds * rate).ceil().clamp(0, words.length);
 }
 
 void main() {
-  const line = 'hello hello what is up my friend';   // 7 words
-
-  group('transcript reveal', () {
-    test('nothing is shown before playback starts', () {
-      expect(spokenCount(line, 0), 0);
+  group('reveal pacing', () {
+    // The three real notes from production that exposed the lag. Each has far
+    // more recording than speech, because people keep recording after they
+    // stop talking.
+    test('"latest update" — 2 words in an 8 second recording', () {
+      const t = 'latest update';
+      const total = Duration(seconds: 8);
+      // Both words are out within a second, not spread across eight.
+      expect(spokenAt(t, const Duration(milliseconds: 500), total), 2);
+      // The old even spread would have shown only the first word until 4s.
+      expect(spokenAt(t, const Duration(seconds: 4), total), 2);
     });
 
-    test('the first word appears as soon as playback starts', () {
-      // Rounding up matters: with floor(), the card would sit blank for a
-      // whole word-slot after the audio had audibly begun.
-      expect(spokenCount(line, 0.01), 1);
+    test('"Hello hello hello" — 3 words in 6 seconds', () {
+      const t = 'Hello hello hello';
+      const total = Duration(seconds: 6);
+      expect(spokenAt(t, const Duration(milliseconds: 800), total), 3);
     });
 
-    test('reveals proportionally through the note', () {
-      expect(spokenCount(line, 0.5), 4);
-      expect(spokenCount(line, 1.0), 7);
+    test('8 words in 5 seconds keeps up with the voice', () {
+      const t = 'the seems to skip the first few words';
+      const total = Duration(seconds: 5);
+      // By 2s a speaker is ~5 words in; the reveal must be at least there.
+      expect(spokenAt(t, const Duration(seconds: 2), total),
+          greaterThanOrEqualTo(5));
     });
 
-    test('never exceeds the words available', () {
-      expect(spokenCount(line, 1.4), 7);
-      expect(spokenCount(line, 99), 7);
+    test('the first word is up almost immediately once playing', () {
+      // The lead covers the recogniser's start-up lag, which is what made the
+      // opening words audible before they were readable.
+      expect(
+          spokenAt('one two three', const Duration(milliseconds: 50),
+              const Duration(seconds: 5)),
+          greaterThanOrEqualTo(1));
     });
 
-    test('is monotonic — a word never un-reveals as playback advances', () {
+    test('nothing shows before playback starts', () {
+      // Guards the compact card: at rest the lead must not leak a word out.
+      expect(spokenAt('one two three', Duration.zero, const Duration(seconds: 5)),
+          0);
+    });
+
+    test('a dense note is paced by the note, not by the natural rate', () {
+      // 40 words in 8s is 5 words/sec — faster than natural speech, so the
+      // even spread is the one that keeps up.
+      final t = List.filled(40, 'word').join(' ');
+      const total = Duration(seconds: 8);
+      expect(spokenAt(t, const Duration(seconds: 4), total),
+          greaterThanOrEqualTo(20));
+    });
+
+    test('never runs past the words available', () {
+      const t = 'one two three';
+      expect(spokenAt(t, const Duration(seconds: 60), const Duration(seconds: 6)), 3);
+    });
+
+    test('is monotonic', () {
+      const t = 'one two three four five six seven eight';
+      const total = Duration(seconds: 6);
       var previous = 0;
-      for (var p = 0.0; p <= 1.0; p += 0.02) {
-        final now = spokenCount(line, p);
-        expect(now, greaterThanOrEqualTo(previous),
-            reason: 'went backwards at progress $p');
+      for (var ms = 0; ms <= 6000; ms += 100) {
+        final now = spokenAt(t, Duration(milliseconds: ms), total);
+        expect(now, greaterThanOrEqualTo(previous), reason: 'went back at $ms');
         previous = now;
       }
     });
 
-    test('collapses runs of whitespace rather than revealing empties', () {
-      expect(spokenCount('one   two \n three', 1.0), 3);
-    });
-
-    test('an empty transcript reveals nothing at any progress', () {
-      expect(spokenCount('', 0), 0);
-      expect(spokenCount('   ', 1), 0);
-    });
-
-    test('a one-word note is fully revealed the moment it starts', () {
-      expect(spokenCount('hey', 0.01), 1);
+    test('an empty transcript reveals nothing', () {
+      expect(spokenAt('', const Duration(seconds: 2), const Duration(seconds: 5)), 0);
+      expect(spokenAt('   ', const Duration(seconds: 2), const Duration(seconds: 5)), 0);
     });
   });
 }
