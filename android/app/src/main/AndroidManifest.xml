@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- Android 13+ will not display a notification from an app that has not
@@ -6,6 +7,19 @@
          delivers the message and the app still wakes, so the logs look
          healthy — nothing is ever drawn on screen. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- Stripped from the merged manifest. The stt_record plugin declares
+         these for its optional "recording in progress" notification, which we
+         never switch on: its own start() returns immediately unless
+         enableSystemNotification is passed, and we never pass it. Left in, they
+         make Play demand a video demonstrating a foreground microphone feature
+         the app does not have. Recording happens only while the room is open
+         and on screen. If that ever changes — recording that continues in the
+         background — these have to come back, and Play will need that video. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"
+        tools:node="remove"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"
+        tools:node="remove"/>
     <application
         android:label="Spacechat"
         android:name="${applicationName}"
@@ -39,6 +53,12 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="space_talk_cards" />
+
+        <!-- The service that would use those permissions. Removed with them so
+             the component cannot be started by anything at all. -->
+        <service
+            android:name="vn.fighttechvn.stt_record.SttRecordForegroundService"
+            tools:node="remove"/>
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
