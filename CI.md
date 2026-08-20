@@ -41,7 +41,7 @@ deleted in a step that runs even when the build fails.
 
 ### 3. Nothing else
 
-The team ID (`B5GMQ7S6F8`) is already committed in the Xcode project and
+The team ID (`NZH7T8Y3FC`) is already committed in the Xcode project and
 `ios/ExportOptions.plist`, and signing is set to Automatic. The Firebase config
 files are tracked, so the runner needs no extra files.
 

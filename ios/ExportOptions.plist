@@ -8,7 +8,7 @@
 	<string>app-store-connect</string>
 
 	<key>teamID</key>
-	<string>B5GMQ7S6F8</string>
+	<string>NZH7T8Y3FC</string>
 
 	<!-- Automatic, matching CODE_SIGN_STYLE in the Xcode project. CI passes an
 	     App Store Connect API key and -allowProvisioningUpdates, which lets
