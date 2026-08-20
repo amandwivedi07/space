@@ -55,16 +55,6 @@ jobs:
       - name: Test
         run: flutter test
 
-      # App Store Connect refuses a build number it has already seen, so it
-      # cannot come from pubspec.yaml — that would mean hand-editing a file
-      # before every merge. run_number is monotonic per workflow; the offset
-      # clears the highest number uploaded by hand (48) so the sequence never
-      # collides with the manual era. The version NAME still comes from
-      # pubspec.yaml, so marketing versioning stays a deliberate act.
-      - name: Compute build number
-        id: build_number
-        run: echo "value=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_OUTPUT"
-
       # Without this, a missing secret surfaces twenty minutes later as
       # "xcodebuild: error: The flag -authenticationKeyID is required when
       # specifying -authenticationKeyPath" — which reads like a bug in this
@@ -102,6 +92,209 @@ jobs:
           mkdir -p ~/private_keys
           printf '%s' "$PRIVATE_KEY" > ~/private_keys/AuthKey_${KEY_ID}.p8
           chmod 600 ~/private_keys/AuthKey_${KEY_ID}.p8
+
+      # Asks Apple whether the three secrets actually work, before spending
+      # four minutes compiling to find out. A wrong Issuer ID, a Key ID that
+      # belongs to a different key, a revoked key and a key without the App
+      # Manager role all surface at the archive as the same thing: a 401 buried
+      # in xcodebuild output, followed by a misleading "No profiles were
+      # found". This says which it is, in seconds, and prints no secret.
+      - name: Verify the key and pick a build number
+        id: build_number
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          BUNDLE_ID: ${{ env.BUNDLE_ID }}
+        run: |
+          python3 - <<'PY'
+          import base64, json, os, re, subprocess, tempfile, time, urllib.request, urllib.error
+
+          key_id, issuer = os.environ["KEY_ID"], os.environ["ISSUER_ID"]
+          path = os.path.expanduser(f"~/private_keys/AuthKey_{key_id}.p8")
+
+          def b64(raw): return base64.urlsafe_b64encode(raw).rstrip(b"=")
+
+          def der_to_raw(der):
+              i = 2 if der[1] < 0x80 else 3 + (der[1] & 0x7F) - 1
+              out = b""
+              for _ in range(2):
+                  ln = der[i + 1]
+                  out += der[i + 2:i + 2 + ln].lstrip(b"\x00").rjust(32, b"\x00")
+                  i += 2 + ln
+              return out
+
+          now = int(time.time())
+          header = b64(json.dumps({"alg": "ES256", "kid": key_id, "typ": "JWT"}).encode())
+          claims = b64(json.dumps({
+              "iss": issuer, "iat": now, "exp": now + 900,
+              "aud": "appstoreconnect-v1",
+          }).encode())
+          signing_input = header + b"." + claims
+          with tempfile.NamedTemporaryFile(delete=False) as f:
+              f.write(signing_input); tmp = f.name
+          der = subprocess.run(["openssl", "dgst", "-sha256", "-sign", path, tmp],
+                               capture_output=True, check=True).stdout
+          jwt = (signing_input + b"." + b64(der_to_raw(der))).decode()
+
+          req = urllib.request.Request(
+              "https://api.appstoreconnect.apple.com/v1/apps?limit=200",
+              headers={"Authorization": f"Bearer {jwt}"})
+          try:
+              with urllib.request.urlopen(req) as r:
+                  print(f"Apple accepted the key (HTTP {r.status}).")
+                  apps = json.load(r).get("data", [])
+              # Bundle ids are not secret, and seeing the list is the whole
+              # diagnosis when Xcode says "No Account for Team": a key that
+              # belongs to a different Apple account authenticates perfectly
+              # and then cannot sign for this team.
+              ids = sorted(a["attributes"]["bundleId"] for a in apps)
+              print(f"This key can see {len(ids)} app(s):")
+              for b in ids:
+                  print(f"  - {b}")
+              want = os.environ["BUNDLE_ID"]
+              if want not in ids:
+                  print(f"::error::This key's account cannot see {want}. That is why"
+                        " the archive reports 'No Account for Team' — the key is valid"
+                        " but belongs to a different Apple Developer account, or the"
+                        " app has not been created in App Store Connect yet. Either"
+                        " create the app there, or issue the API key from the account"
+                        " that owns the app.")
+                  raise SystemExit(1)
+              print(f"{want} is visible to this key.")
+
+              # pubspec.yaml owns the build number, for iOS exactly as it
+              # already does for Android — one number, both stores, bumped
+              # deliberately. It was 100 + run_number at first, justified with
+              # "nothing has ever been uploaded for this bundle id", which was
+              # never checked and was false; that is how build 114 came to sit
+              # next to a 13.
+              #
+              # Apple only requires the number to be unique and rising WITHIN a
+              # marketing version, so this checks that train and says exactly
+              # what to bump rather than letting the upload fail ten minutes
+              # later.
+              spec = open("pubspec.yaml").read()
+              m = re.search(r"^version:\s*([0-9.]+)\+([0-9]+)\s*$", spec, re.M)
+              if not m:
+                  print("::error::Could not read 'version: x.y.z+N' from pubspec.yaml.")
+                  raise SystemExit(1)
+              name, number = m.group(1), int(m.group(2))
+              print(f"pubspec says {name}+{number}")
+
+              app_id = next(a["id"] for a in apps
+                            if a["attributes"]["bundleId"] == want)
+              r3 = urllib.request.Request(
+                  "https://api.appstoreconnect.apple.com/v1/builds"
+                  f"?filter[app]={app_id}&include=preReleaseVersion&limit=200",
+                  headers={"Authorization": f"Bearer {jwt}"})
+              with urllib.request.urlopen(r3) as resp:
+                  payload = json.load(resp)
+              trains = {inc["id"]: inc["attributes"]["version"]
+                        for inc in payload.get("included", [])
+                        if inc["type"] == "preReleaseVersions"}
+              # Print everything Apple holds, grouped by marketing version. It
+              # is the answer to "what build number is safe" and to "did the
+              # last upload actually land" — a build takes a few minutes to
+              # appear after altool reports success.
+              held = {}
+              for b in payload.get("data", []):
+                  rel = (b.get("relationships", {}).get("preReleaseVersion", {})
+                          .get("data") or {}).get("id")
+                  v = b["attributes"].get("version")
+                  held.setdefault(trains.get(rel, "?"), []).append(v)
+              for train in sorted(held):
+                  nums = ", ".join(sorted(held[train], key=lambda x: int(x)
+                                          if x and x.isdigit() else 0))
+                  print(f"  Apple holds {train}: {nums}")
+
+              same_train = []
+              for b in payload.get("data", []):
+                  rel = (b.get("relationships", {}).get("preReleaseVersion", {})
+                          .get("data") or {}).get("id")
+                  v = b["attributes"].get("version")
+                  if trains.get(rel) == name and v and v.isdigit():
+                      same_train.append(int(v))
+
+              if same_train:
+                  print(f"{name} already has build(s): "
+                        f"{', '.join(str(n) for n in sorted(same_train))}")
+                  if number <= max(same_train):
+                      print(f"::error::pubspec has {name}+{number}, but Apple already"
+                            f" holds build {max(same_train)} for {name}. Within one"
+                            " marketing version a build number must be higher than"
+                            " every previous one. Bump the +N in pubspec.yaml past"
+                            f" {max(same_train)}, or move to a new version — a fresh"
+                            " version number starts its own sequence.")
+                      raise SystemExit(1)
+              else:
+                  print(f"{name} has no builds yet; {number} starts its sequence.")
+
+              with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+                  out.write(f"value={number}\n")
+
+              # The archive says "No Account for Team". Two things cause that
+              # and they need different fixes: the team id pinned in the Xcode
+              # project belongs to a different account, or the key cannot act
+              # on signing assets because its role is too low. Reading a
+              # provisioning endpoint separates them — and a profile carries
+              # the real team id inside it, which is the value the project
+              # should be pinning.
+              for path in ("certificates", "profiles"):
+                  r2 = urllib.request.Request(
+                      f"https://api.appstoreconnect.apple.com/v1/{path}?limit=200",
+                      headers={"Authorization": f"Bearer {jwt}"})
+                  try:
+                      with urllib.request.urlopen(r2) as resp:
+                          data = json.load(resp).get("data", [])
+                      print(f"{path}: readable, {len(data)} found")
+                      if path == "profiles":
+                          import plistlib, re as _re
+                          teams = set()
+                          for prof in data:
+                              raw = prof["attributes"].get("profileContent")
+                              if not raw:
+                                  continue
+                              blob = base64.b64decode(raw)
+                              m = _re.search(rb"<plist.*?</plist>", blob, _re.S)
+                              if not m:
+                                  continue
+                              pl = plistlib.loads(m.group(0))
+                              teams.update(pl.get("TeamIdentifier", []))
+                          if teams:
+                              print(f"Team id(s) this account actually signs with: "
+                                    f"{', '.join(sorted(teams))}")
+                              if "NZH7T8Y3FC" not in teams:
+                                  print("::error::ios/Runner.xcodeproj and"
+                                        " ios/ExportOptions.plist pin DEVELOPMENT_TEAM"
+                                        " NZH7T8Y3FC, which is not a team this key can"
+                                        " sign for. That is the 'No Account for Team'"
+                                        " error. Use one of the ids above.")
+                  except urllib.error.HTTPError as e2:
+                      print(f"{path}: HTTP {e2.code}")
+                      if e2.code == 403:
+                          print("::error::The key cannot read signing assets (403)."
+                                " -allowProvisioningUpdates has to create a"
+                                " distribution certificate and profile, which needs"
+                                " the App Manager or Admin role. Re-issue the key with"
+                                " App Manager.")
+          except urllib.error.HTTPError as e:
+              body = e.read().decode()[:400]
+              if e.code == 401:
+                  print("::error::Apple rejected the credentials (401). One of the three"
+                        " secrets is wrong: the Issuer ID, the Key ID, or a private key"
+                        " that does not belong to that Key ID. A revoked key looks the"
+                        " same. Re-copy all three together from App Store Connect →"
+                        " Users and Access → Integrations. See CI.md.")
+              elif e.code == 403:
+                  print("::error::The key is valid but not permitted (403). The archive"
+                        " signs itself with -allowProvisioningUpdates, which needs to"
+                        " create a distribution certificate and profile — that requires"
+                        " the App Manager role. A Developer-role key is refused.")
+              else:
+                  print(f"::error::Apple answered HTTP {e.code} while checking the key.")
+              print(f"Apple said: {body}")
+              raise SystemExit(1)
+          PY
 
       # Compiles the Dart and runs pod install. Signing is deliberately skipped
       # here: xcodebuild signs during archive, where the API key is available.
