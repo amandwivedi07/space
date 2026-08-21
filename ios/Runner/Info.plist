@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Space</string>
+	<string>Spacechat</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Space</string>
+	<string>Spacechat</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -43,10 +43,10 @@
 	<string>Space uses the camera for photos and clips you send.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Space uses the microphone to record voice notes you send.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Space transcribes what you say so your voice notes can be read and kept.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Space needs your library to attach photos and videos.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Space transcribes what you say so your voice notes can be read and kept.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -70,6 +70,10 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -86,14 +90,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<!-- Lets iOS wake the app for the data half of a push (space_id, kind)
-	     while it is backgrounded, so tapping the banner can open straight
-	     into the right room. The banner itself would show without this; the
-	     routing data would not arrive until launch. -->
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
 	</array>
 </dict>
 </plist>
