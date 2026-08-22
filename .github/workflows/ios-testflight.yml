@@ -296,6 +296,92 @@ jobs:
               raise SystemExit(1)
           PY
 
+      # A runner is destroyed after every build, so the certificate the last
+      # run created is already useless — its private key went with the machine.
+      # -allowProvisioningUpdates therefore mints a fresh one every time, and
+      # Apple caps how many an account may hold; builds 60-62 each took a slot
+      # and 63 hit the wall with "Choose a certificate to revoke".
+      #
+      # This revokes only the ones CI made ("Created via API"). Nobody can sign
+      # with them: every matching private key died with the runner that asked
+      # for it. Certificates a person created on their own Mac are left alone.
+      - name: Reclaim certificate slots CI used up
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          python3 - <<'PY'
+          import base64, json, os, subprocess, tempfile, time, urllib.request, urllib.error
+
+          key_id, issuer = os.environ["KEY_ID"], os.environ["ISSUER_ID"]
+          path = os.path.expanduser(f"~/private_keys/AuthKey_{key_id}.p8")
+
+          def b64(raw): return base64.urlsafe_b64encode(raw).rstrip(b"=")
+
+          def der_to_raw(der):
+              i = 2 if der[1] < 0x80 else 3 + (der[1] & 0x7F) - 1
+              out = b""
+              for _ in range(2):
+                  ln = der[i + 1]
+                  out += der[i + 2:i + 2 + ln].lstrip(b"\x00").rjust(32, b"\x00")
+                  i += 2 + ln
+              return out
+
+          now = int(time.time())
+          header = b64(json.dumps({"alg": "ES256", "kid": key_id, "typ": "JWT"}).encode())
+          claims = b64(json.dumps({"iss": issuer, "iat": now, "exp": now + 900,
+                                   "aud": "appstoreconnect-v1"}).encode())
+          si = header + b"." + claims
+          with tempfile.NamedTemporaryFile(delete=False) as f:
+              f.write(si); tmp = f.name
+          der = subprocess.run(["openssl", "dgst", "-sha256", "-sign", path, tmp],
+                               capture_output=True, check=True).stdout
+          jwt = (si + b"." + b64(der_to_raw(der))).decode()
+
+          def call(method, path_):
+              req = urllib.request.Request(
+                  "https://api.appstoreconnect.apple.com" + path_, method=method,
+                  headers={"Authorization": f"Bearer {jwt}"})
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      body = r.read()
+                      return r.status, (json.loads(body) if body else {})
+              except urllib.error.HTTPError as e:
+                  return e.code, {}
+
+          status, data = call("GET", "/v1/certificates?limit=200")
+          if status != 200:
+              print(f"::warning::Could not list certificates (HTTP {status}); "
+                    "leaving them alone and letting the archive try.")
+              raise SystemExit(0)
+
+          certs = data.get("data", [])
+          print(f"The account holds {len(certs)} certificate(s).")
+
+          # "Created via API" is the display name Apple gives a certificate
+          # minted by -allowProvisioningUpdates. It is the signature of a CI
+          # run, and the only kind safe to revoke unattended.
+          ours = [c for c in certs
+                  if "Created via API" in (c["attributes"].get("displayName") or "")]
+          mine = [c for c in certs if c not in ours]
+          for c in mine:
+              a = c["attributes"]
+              print(f"  keeping {a.get('certificateType')}: "
+                    f"{a.get('displayName')} (not CI's)")
+
+          if not ours:
+              print("Nothing of CI's to reclaim.")
+              raise SystemExit(0)
+
+          for c in ours:
+              a = c["attributes"]
+              code, _ = call("DELETE", f"/v1/certificates/{c['id']}")
+              state = "revoked" if code in (204, 200) else f"HTTP {code}"
+              print(f"  {state}: {a.get('certificateType')} "
+                    f"{a.get('displayName')} (expires {a.get('expirationDate')})")
+          print(f"Reclaimed {len(ours)} slot(s); the archive will mint a fresh one.")
+          PY
+
       # Compiles the Dart and runs pod install. Signing is deliberately skipped
       # here: xcodebuild signs during archive, where the API key is available.
       - name: Build Flutter iOS bundle
