@@ -92,11 +92,11 @@ class StoryHeader extends StatelessWidget {
               icon: Icon(Icons.delete_outline_rounded,
                   size: 20, color: context.muted),
             ),
-          // IconButton(
-          //   tooltip: 'More',
-          //   onPressed: onMore,
-          //   icon: Icon(Icons.more_horiz_rounded, size: 21, color: context.ink),
-          // ),
+          IconButton(
+            tooltip: 'More',
+            onPressed: onMore,
+            icon: Icon(Icons.more_horiz_rounded, size: 21, color: context.ink),
+          ),
           IconButton(
             tooltip: 'Your shelf',
             onPressed: onShelf,

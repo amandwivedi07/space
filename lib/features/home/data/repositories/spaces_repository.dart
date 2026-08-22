@@ -31,6 +31,9 @@ abstract class SpacesRepository {
   /// Leave a space quietly (server removes membership). Returns a Result
   /// because leaving is destructive: a silent failure would leave someone
   /// believing they are out of a group they are still in.
+  /// Rename a circle. Everyone in it sees the new name.
+  Future<Result<void>> renameCircle(String spaceId, String name);
+
   Future<Result<void>> leave(String spaceId);
 
   /// Answer an incoming request. Declining removes the space entirely.

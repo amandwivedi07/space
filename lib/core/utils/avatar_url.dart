@@ -20,7 +20,15 @@ String sizedAvatarUrl(
   if (url.isEmpty) return url;
 
   final Uri? uri = Uri.tryParse(url);
-  if (uri == null || !uri.host.endsWith('googleusercontent.com')) return url;
+  if (uri == null) return url;
+  // Exact host or a true subdomain. A bare endsWith would also match
+  // "evilgoogleusercontent.com", and the host is compared lowercased because
+  // hostnames are case-insensitive while Dart preserves whatever was typed.
+  final host = uri.host.toLowerCase();
+  if (host != 'googleusercontent.com' &&
+      !host.endsWith('.googleusercontent.com')) {
+    return url;
+  }
 
   // Round up to a sensible bucket. Google serves any integer, but varying the
   // number per device would defeat both its CDN cache and Flutter's, since the
@@ -33,8 +41,15 @@ String sizedAvatarUrl(
   // ".../ACg8ocIv...=s96-c". Strip whatever is there and ask for our own.
   // `-c` keeps Google's centre crop, which matches the BoxFit.cover we draw
   // with — without it a non-square original comes back letterboxed.
-  final path = url.split('?').first;
-  final query = url.length > path.length ? url.substring(path.length) : '';
+  // Split at the first '?' or '#'. Splitting on '?' alone silently dropped
+  // fragments, and the Go side that writes these URLs keeps them.
+  var cut = url.length;
+  for (final mark in ['?', '#']) {
+    final at = url.indexOf(mark);
+    if (at >= 0 && at < cut) cut = at;
+  }
+  final path = url.substring(0, cut);
+  final query = url.substring(cut);
   final base = path.contains('=') ? path.substring(0, path.lastIndexOf('=')) : path;
   return '$base=s$size-c$query';
 }

@@ -21,6 +21,7 @@ import '../viewmodels/room_viewmodel.dart';
 import '../widgets/composer.dart';
 import '../widgets/pending_notice.dart';
 import '../widgets/room_menu_sheet.dart';
+import '../widgets/rename_circle_dialog.dart';
 import '../widgets/empty_room_view.dart';
 import '../widgets/story_card_view.dart';
 import '../widgets/story_footer.dart';
@@ -114,7 +115,32 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       isCircle: isCircle,
       title: _roomTitle(),
     );
-    if (choice == RoomMenuChoice.leave && mounted) await _leaveSpace();
+    if (!mounted) return;
+    switch (choice) {
+      case RoomMenuChoice.rename:
+        await _renameCircle();
+      case RoomMenuChoice.leave:
+        await _leaveSpace();
+      case null:
+        break;
+    }
+  }
+
+  /// Renaming is safe and reversible, so unlike leaving it asks for the new
+  /// name and nothing else — no confirmation step in front of it.
+  Future<void> _renameCircle() async {
+    final name = await RenameCircleDialog.show(context, _roomTitle());
+    if (name == null || !mounted) return;
+
+    final result = await ref
+        .read(spacesRepositoryProvider)
+        .renameCircle(widget.refId, name);
+    if (!mounted) return;
+    result.when(
+      success: (_) => AppToast.show(context, 'Renamed to $name'),
+      failure: (message) => AppDialog.alert(context,
+          title: "Couldn't rename it", body: message),
+    );
   }
 
   /// Leaving is the one action here with no undo — the space disappears from

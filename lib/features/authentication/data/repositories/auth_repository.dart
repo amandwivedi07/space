@@ -134,14 +134,35 @@ class ApiAuthRepository implements AuthRepository {
 
   @override
   Future<Result<UserProfile>> updateProfile(UserProfile profile) async {
+    // A handle is the one field here the server owns: it must be unique, and
+    // it is how other people find you. Sending a changed one and then keeping
+    // the local copy anyway would show a handle nobody else can see.
+    final current = await _local.readProfile();
+    final handleChanged =
+        profile.handle.isNotEmpty && profile.handle != (current?.handle ?? '');
+
     try {
-      await _remote.updateMe(name: profile.name, paletteId: profile.paletteId);
+      final server = await _remote.updateMe(
+        name: profile.name,
+        paletteId: profile.paletteId,
+        handle: handleChanged ? profile.handle : null,
+      );
+      // Trust the server's version of the handle — it normalises case and
+      // strips a leading "@", so what was typed is not always what was stored.
+      final saved = profile.copyWith(
+        handle: server['handle'] as String? ?? profile.handle,
+      );
+      await _local.writeProfile(saved);
+      return Success(saved);
     } on ApiException catch (e) {
       if (e.isUnauthorized) return Failure(e.message);
-      Log.w('updateMe failed, keeping local copy: $e'); // offline-tolerant
+      // Rejected handles must reach the reader. Everything else stays
+      // offline-tolerant, which is why this is not a blanket failure.
+      if (handleChanged) return Failure(e.message);
+      Log.w('updateMe failed, keeping local copy: $e');
+      await _local.writeProfile(profile);
+      return Success(profile);
     }
-    await _local.writeProfile(profile);
-    return Success(profile);
   }
 
   @override

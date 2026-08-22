@@ -217,6 +217,20 @@ class ApiSpacesRepository implements SpacesRepository {
   }
 
   @override
+  Future<Result<void>> renameCircle(String spaceId, String name) async {
+    try {
+      await _remote.rename(spaceId, name);
+      // Refreshed rather than patched locally: the room header and the home
+      // tile both read the name from this list, so one refresh moves both.
+      await refresh();
+      return const Success(null);
+    } on ApiException catch (e) {
+      Log.w('rename failed: $e');
+      return Failure(e.message);
+    }
+  }
+
+  @override
   Future<Result<void>> leave(String spaceId) async {
     try {
       await _remote.leave(spaceId);

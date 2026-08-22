@@ -40,11 +40,15 @@ class AuthRemoteDataSource {
 
   /// PATCH /auth/me → user
   Future<Map<String, dynamic>> updateMe(
-          {String? name, String? avatarUrl, String? paletteId}) async =>
+          {String? name,
+          String? avatarUrl,
+          String? paletteId,
+          String? handle}) async =>
       await _client.patch('/auth/me', body: {
         'name': ?name,
         'avatar_url': ?avatarUrl,
         'palette_id': ?paletteId,
+        'handle': ?handle,
       }) as Map<String, dynamic>;
 
   /// POST /auth/logout — revokes the refresh token server-side.

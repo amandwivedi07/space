@@ -35,10 +35,37 @@ class CardContent extends ConsumerWidget {
   }
 }
 
-class _VoiceContent extends ConsumerWidget {
+class _VoiceContent extends ConsumerStatefulWidget {
   const _VoiceContent({required this.card});
 
   final SpaceCard card;
+
+  @override
+  ConsumerState<_VoiceContent> createState() => _VoiceContentState();
+}
+
+class _VoiceContentState extends ConsumerState<_VoiceContent> {
+  // Captured up front, because `ref` cannot be touched in dispose() — Riverpod
+  // has already torn it down by then and throws. Holding the notifier and a
+  // plain bool keeps the teardown free of any ref access.
+  VoicePlayerNotifier? _player;
+  bool _wasLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = ref.read(voicePlayerProvider.notifier);
+  }
+
+  // A voice note must not outlive the card it belongs to. Cards fade, get
+  // deleted, and scroll out of the room — and the player is a single shared
+  // instance, so without this it would carry on talking after the thing that
+  // held it had gone. Disposal is the one signal covering all of those routes.
+  @override
+  void dispose() {
+    if (_wasLoaded) _player?.stop();
+    super.dispose();
+  }
 
   /// Long transcripts stepped down harder than before: a thirty-second note is
   /// a paragraph, and at 24pt it filled the screen.
@@ -52,13 +79,15 @@ class _VoiceContent extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final card = widget.card;
     final ink = context.ink;
     final transcript = card.body.trim();
     final source = card.mediaPath ?? '';
     final playback = ref.watch(voicePlayerProvider);
     final isThis = playback.isLoaded(card.id);
     final playing = playback.isPlaying(card.id);
+    _wasLoaded = isThis;
     // Only this card's own progress lights the waveform; another card playing
     // must not animate this one.
     final progress = isThis ? playback.progress : 0.0;
@@ -297,25 +326,33 @@ class _WordState extends State<_Word>
     duration: const Duration(milliseconds: 260),
   )..forward();
 
+  // Built once, not per frame. These used to be constructed inside build(),
+  // which runs on every position tick — each rebuild attached another listener
+  // to the controller and never removed it, so a long transcript leaked
+  // hundreds of animations while it played.
+  late final CurvedAnimation _curved =
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+  late final Animation<Offset> _slide = Tween<Offset>(
+    begin: const Offset(0, 0.3),
+    end: Offset.zero,
+  ).animate(_curved);
+
   @override
   void dispose() {
+    _curved.dispose();
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final curved = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
     // Driven by the word's own controller, which runs once when it is first
     // built. Tying it to a rebuild-time flag instead would replay the entrance
     // on every position tick.
     return FadeTransition(
-      opacity: curved,
+      opacity: _curved,
       child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 0.3),
-          end: Offset.zero,
-        ).animate(curved),
+        position: _slide,
         child: AnimatedDefaultTextStyle(
           duration: const Duration(milliseconds: 220),
           style: widget.spoken

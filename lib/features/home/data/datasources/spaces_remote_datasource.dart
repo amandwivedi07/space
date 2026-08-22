@@ -31,6 +31,10 @@ class SpacesRemoteDataSource {
 
   Future<void> leave(String spaceId) => _client.post('/spaces/$spaceId/leave');
 
+  /// Rename a circle. Any member may; the server decides.
+  Future<void> rename(String spaceId, String name) =>
+      _client.patch('/spaces/$spaceId', body: {'name': name});
+
   /// Answer an invitation. Declining discards the space for both people.
   Future<void> acceptRequest(String spaceId) =>
       _client.post('/spaces/$spaceId/accept');

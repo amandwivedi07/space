@@ -4,7 +4,7 @@ import '../../../../core/extensions/context_x.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/app_bottom_sheet.dart';
 
-enum RoomMenuChoice { leave }
+enum RoomMenuChoice { rename, leave }
 
 /// The room's "…" menu. It holds the things you do to the *space* rather than
 /// to a card — the header keeps only what you reach for constantly, and
@@ -31,6 +31,29 @@ class RoomMenuSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Circles only: a direct space is named after the person in it, and
+        // the schema has no name to change.
+        if (isCircle)
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            leading: Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: context.ink.withValues(alpha: 0.06),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.edit_outlined, size: 19, color: context.ink),
+            ),
+            title: Text('Rename circle',
+                style: AppTypography.display(context.ink, 17)),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text('EVERYONE IN IT SEES THE NEW NAME',
+                  style: AppTypography.mono(context.muted, 8)),
+            ),
+            onTap: () => Navigator.of(context).pop(RoomMenuChoice.rename),
+          ),
         ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 4),
           leading: Container(

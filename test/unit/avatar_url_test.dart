@@ -58,6 +58,29 @@ void main() {
       expect(at(ours, 340, 3), ours);
     });
 
+    test('a look-alike host is not ours', () {
+      // A bare endsWith('googleusercontent.com') matched this, and rewrote a
+      // URL on a host nobody here controls.
+      const evil = 'https://evilgoogleusercontent.com/a/ABC=s96-c';
+      expect(at(evil, 340, 3), evil);
+
+      const suffixed = 'https://googleusercontent.com.attacker.net/a/ABC';
+      expect(at(suffixed, 340, 3), suffixed);
+    });
+
+    test('a real subdomain still matches, whatever its case', () {
+      // Hostnames are case-insensitive; Dart preserves what it was given.
+      final out = at('https://LH3.GoogleUserContent.com/a/ABC=s96-c', 340, 3);
+      expect(out, endsWith('=s1024-c'));
+    });
+
+    test('keeps a fragment', () {
+      // Splitting on '?' alone dropped these on the floor.
+      final out = at('$google#frag', 340, 3);
+      expect(out, endsWith('#frag'));
+      expect(out, contains('=s1024-c'));
+    });
+
     test('leaves an empty url alone', () {
       expect(at('', 340, 3), '');
     });
